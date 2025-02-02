@@ -20,17 +20,17 @@ body, html {
 }
 
 #frame {
-    width: 100%;
-    min-width: 360px;
-    height: 100vh;
+    width: 90%;
+    min-width: 340px;
+    height: 90vh;
     min-height: 300px;
     background: #2c2c2c; /* Darker frame background */
 }
 
 @media screen and (max-width: 360px) {
     #frame {
-        width: 100%;
-        height: 100vh;
+        width: 90%;
+        height: 90vh;
     }
 }
 
@@ -60,7 +60,7 @@ body, html {
 
 @media screen and (max-width: 735px) {
     #frame #sidepanel #profile {
-        width: 100%;
+        width: 90%;
         margin: 0 auto;
         padding: 5px 0 0 0;
         background: #32465a; /* Keep this as is for contrast */
