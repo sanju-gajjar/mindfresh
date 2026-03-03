@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Stranger Chat</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      height: 100vh;
+      background: #f5f6fa;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 420px;
+      height: 100vh;
+      background: white;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      background: #e74a3b;
+      color: white;
+      padding: 18px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .status {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .chat-area {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .message {
+      max-width: 75%;
+      padding: 12px 14px;
+      border-radius: 18px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      word-wrap: break-word;
+    }
+
+    .sender-name {
+      font-size: 11px;
+      opacity: 0.7;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .me {
+      background: #e74a3b;
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: 5px;
+    }
+
+    .other {
+      background: #e4e6eb;
+      align-self: flex-start;
+      border-bottom-left-radius: 5px;
+    }
+
+    .message img {
+      max-width: 100%;
+      border-radius: 12px;
+      margin-top: 5px;
+    }
+
+    .input-area {
+      display: flex;
+      padding: 10px;
+      border-top: 1px solid #ddd;
+      background: white;
+    }
+
+    .input-area input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      border-radius: 20px;
+      border: 1px solid #ddd;
+      font-size: 14px;
+      margin-right: 8px;
+    }
+
+    .send-btn {
+      background: #1cc88a;
+      border: none;
+      color: white;
+      padding: 0 18px;
+      border-radius: 20px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .file-btn {
+      background: #858796;
+      border: none;
+      color: white;
+      padding: 0 12px;
+      border-radius: 20px;
+      margin-right: 8px;
+      cursor: pointer;
+    }
+
+    .skip-btn {
+      background: #f6c23e;
+      border: none;
+      color: #333;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 420px;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .overlay-content {
+      text-align: center;
+      color: white;
+      padding: 30px;
+    }
+
+    .overlay-content h2 {
+      margin-bottom: 15px;
+      font-size: 20px;
+    }
+
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .btn-primary {
+      background: #4e73df;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 20px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+
+    .btn-secondary {
+      background: #858796;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 20px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .system-message {
+      text-align: center;
+      padding: 10px;
+      margin: 10px 0;
+      background: #ffeaa7;
+      border-radius: 10px;
+      font-size: 13px;
+      color: #333;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="app">
+
+    <div class="header">
+      <div>
+        <div>Stranger Chat</div>
+        <div class="status" id="status">Finding stranger...</div>
+      </div>
+      <button class="skip-btn" onclick="skipStranger()" id="skipBtn" disabled>Skip</button>
+    </div>
+
+    <div class="chat-area" id="chat"></div>
+
+    <div class="input-area">
+      <input type="file" id="imageInput" hidden>
+      <button class="file-btn" onclick="pickImage()" id="imgBtn" disabled>+</button>
+      <input type="text" id="msg" placeholder="Waiting for stranger..." disabled />
+      <button class="send-btn" onclick="sendMessage()" id="sendBtn" disabled>Send</button>
+    </div>
+
+  </div>
+
+  <!-- Searching Overlay -->
+  <div class="overlay" id="searchOverlay">
+    <div class="overlay-content">
+      <h2>Finding a stranger...</h2>
+      <div class="spinner"></div>
+      <p>Please wait while we connect you</p>
+      <button class="btn-secondary" onclick="cancelSearch()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Disconnected Overlay -->
+  <div class="overlay hidden" id="disconnectOverlay">
+    <div class="overlay-content">
+      <h2>Stranger Disconnected</h2>
+      <p>The stranger has left the chat</p>
+      <button class="btn-primary" onclick="findNewStranger()">Find New Stranger</button>
+      <button class="btn-secondary" onclick="goHome()">Go Home</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const chat = document.getElementById("chat");
+    const msgInput = document.getElementById("msg");
+    const sendBtn = document.getElementById("sendBtn");
+    const imgBtn = document.getElementById("imgBtn");
+    const skipBtn = document.getElementById("skipBtn");
+    const status = document.getElementById("status");
+    const searchOverlay = document.getElementById("searchOverlay");
+    const disconnectOverlay = document.getElementById("disconnectOverlay");
+
+    let currentRoomId = null;
+    let partnerName = "Stranger";
+    let myUsername = "You";
+
+    // Load saved username
+    const savedUsername = localStorage.getItem('chatUsername');
+    if (savedUsername) {
+      myUsername = savedUsername;
+      socket.emit('set-username', savedUsername);
+    }
+
+    // Start searching immediately
+    socket.emit("find-stranger");
+
+    socket.on("user-info", (user) => {
+      myUsername = user.username;
+    });
+
+    socket.on("searching-stranger", () => {
+      searchOverlay.classList.remove("hidden");
+      status.innerText = "Searching...";
+    });
+
+    socket.on("stranger-found", (data) => {
+      currentRoomId = data.roomId;
+      partnerName = data.partnerName;
+      searchOverlay.classList.add("hidden");
+      status.innerText = `Chatting with ${partnerName}`;
+      
+      // Enable chat
+      msgInput.disabled = false;
+      msgInput.placeholder = "Type message...";
+      sendBtn.disabled = false;
+      imgBtn.disabled = false;
+      skipBtn.disabled = false;
+
+      // Add welcome message
+      addSystemMessage(`Connected to ${partnerName}`);
+    });
+
+    socket.on("stranger-disconnected", () => {
+      disconnectOverlay.classList.remove("hidden");
+      status.innerText = "Disconnected";
+      disableChat();
+    });
+
+    socket.on("stranger-skipped", () => {
+      chat.innerHTML = "";
+      socket.emit("find-stranger");
+      searchOverlay.classList.remove("hidden");
+      disableChat();
+    });
+
+    socket.on("search-stopped", () => {
+      goHome();
+    });
+
+    function disableChat() {
+      msgInput.disabled = true;
+      msgInput.placeholder = "Chat ended";
+      sendBtn.disabled = true;
+      imgBtn.disabled = true;
+      skipBtn.disabled = true;
+    }
+
+    function scrollToBottom() {
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function addSystemMessage(text) {
+      const div = document.createElement("div");
+      div.classList.add("system-message");
+      div.innerText = text;
+      chat.appendChild(div);
+      scrollToBottom();
+    }
+
+    function sendMessage() {
+      const message = msgInput.value.trim();
+      if (!message || !currentRoomId) return;
+
+      socket.emit("chat-message", { roomId: currentRoomId, message });
+      msgInput.value = "";
+    }
+
+    function skipStranger() {
+      if (confirm("Skip this stranger and find another?")) {
+        socket.emit("skip-stranger");
+      }
+    }
+
+    function cancelSearch() {
+      socket.emit("stop-searching");
+    }
+
+    function findNewStranger() {
+      disconnectOverlay.classList.add("hidden");
+      chat.innerHTML = "";
+      socket.emit("find-stranger");
+      searchOverlay.classList.remove("hidden");
+    }
+
+    function goHome() {
+      window.location.href = "/";
+    }
+
+    socket.on("chat-message", (data) => {
+      const div = document.createElement("div");
+      div.classList.add("message");
+      
+      const isMe = data.sender === socket.id;
+      div.classList.add(isMe ? "me" : "other");
+
+      if (!isMe) {
+        const nameDiv = document.createElement("div");
+        nameDiv.classList.add("sender-name");
+        nameDiv.innerText = partnerName;
+        div.appendChild(nameDiv);
+      }
+
+      const textDiv = document.createElement("div");
+      textDiv.innerText = data.message;
+      div.appendChild(textDiv);
+
+      chat.appendChild(div);
+      scrollToBottom();
+    });
+
+    function pickImage() {
+      document.getElementById("imageInput").click();
+    }
+
+    function generateId() {
+      return "img_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+    }
+
+    // Send image
+    document.getElementById("imageInput").addEventListener("change", function () {
+      const file = this.files[0];
+      if (!file || !currentRoomId) return;
+
+      const reader = new FileReader();
+      reader.onload = function () {
+        const imageId = generateId();
+
+        socket.emit("send-image", {
+          roomId: currentRoomId,
+          image: reader.result,
+          imageId: imageId
+        });
+      };
+      reader.readAsDataURL(file);
+      this.value = "";
+    });
+
+    // Receive image
+    socket.on("receive-image", (data) => {
+      const div = document.createElement("div");
+      div.classList.add("message");
+      
+      const isMe = data.sender === socket.id;
+      div.classList.add(isMe ? "me" : "other");
+      div.dataset.id = data.imageId;
+
+      if (!isMe) {
+        const nameDiv = document.createElement("div");
+        nameDiv.classList.add("sender-name");
+        nameDiv.innerText = partnerName;
+        div.appendChild(nameDiv);
+      }
+
+      const img = document.createElement("img");
+      img.src = data.image;
+      div.appendChild(img);
+
+      if (isMe) {
+        const delBtn = document.createElement("button");
+        delBtn.innerText = "Delete";
+        delBtn.style.marginTop = "6px";
+        delBtn.style.background = "#e74a3b";
+        delBtn.style.color = "white";
+        delBtn.style.border = "none";
+        delBtn.style.padding = "6px 12px";
+        delBtn.style.borderRadius = "10px";
+
+        delBtn.onclick = function () {
+          socket.emit("delete-image", {
+            roomId: currentRoomId,
+            imageId: data.imageId
+          });
+        };
+
+        div.appendChild(delBtn);
+      }
+
+      chat.appendChild(div);
+      scrollToBottom();
+    });
+
+    // REMOVE IMAGE ON ALL CLIENTS
+    socket.on("remove-image", (imageId) => {
+      const el = chat.querySelector(`[data-id='${imageId}']`);
+      if (el) el.remove();
+    });
+
+    // Enter key to send
+    msgInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        sendMessage();
+      }
+    });
+
+  </script>
+
+</body>
+
+</html>

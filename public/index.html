@@ -3,7 +3,7 @@
 
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Chat Room</title>
+  <title>MindFresh Chat</title>
 
   <style>
     * {
@@ -15,227 +15,253 @@
 
     body {
       height: 100vh;
-      background: #f5f6fa;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       display: flex;
       justify-content: center;
+      align-items: center;
     }
 
-    .app {
+    .container {
       width: 100%;
       max-width: 420px;
-      height: 100vh;
-      background: white;
-      display: flex;
-      flex-direction: column;
+      padding: 20px;
     }
 
-    .header {
-      background: #4e73df;
-      color: white;
-      padding: 18px;
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 40px 30px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
       text-align: center;
-      font-weight: 600;
-      font-size: 16px;
-    }
-
-    .chat-area {
-      flex: 1;
-      padding: 15px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .message {
-      max-width: 75%;
-      padding: 12px 14px;
-      border-radius: 18px;
+      color: #333;
       margin-bottom: 10px;
-      font-size: 14px;
-      word-wrap: break-word;
+      font-size: 32px;
     }
 
-    .me {
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 40px;
+      font-size: 14px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-bottom: 12px;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #e74a3b, #d63384);
+      color: white;
+      box-shadow: 0 4px 15px rgba(231, 74, 59, 0.4);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 6px 20px rgba(231, 74, 59, 0.5);
+    }
+
+    .btn-secondary {
       background: #4e73df;
       color: white;
-      align-self: flex-end;
-      border-bottom-right-radius: 5px;
     }
 
-    .other {
-      background: #e4e6eb;
-      align-self: flex-start;
-      border-bottom-left-radius: 5px;
-    }
-
-    .message img {
-      max-width: 100%;
-      border-radius: 12px;
-      margin-top: 5px;
-    }
-
-    .input-area {
-      display: flex;
-      padding: 10px;
-      border-top: 1px solid #ddd;
+    .btn-outline {
       background: white;
+      color: #4e73df;
+      border: 2px solid #4e73df;
     }
 
-    .input-area input[type="text"] {
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    input[type="text"] {
       flex: 1;
-      padding: 12px;
-      border-radius: 20px;
-      border: 1px solid #ddd;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
       font-size: 14px;
-      margin-right: 8px;
+      transition: border 0.3s;
     }
 
-    .send-btn {
-      background: #1cc88a;
-      border: none;
-      color: white;
-      padding: 0 18px;
-      border-radius: 20px;
-      font-weight: 600;
-      cursor: pointer;
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #4e73df;
     }
 
-    .file-btn {
-      background: #858796;
-      border: none;
-      color: white;
-      padding: 0 12px;
-      border-radius: 20px;
-      margin-right: 8px;
-      cursor: pointer;
+    .divider {
+      text-align: center;
+      margin: 30px 0;
+      color: #999;
+      position: relative;
     }
 
-    button:active {
-      transform: scale(0.95);
+    .divider::before,
+    .divider::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 40%;
+      height: 1px;
+      background: #e0e0e0;
+    }
+
+    .divider::before {
+      left: 0;
+    }
+
+    .divider::after {
+      right: 0;
+    }
+
+    .feature {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+      color: #666;
+      font-size: 13px;
+    }
+
+    .feature-icon {
+      width: 24px;
+      height: 24px;
+      background: #f0f0f0;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
     }
   </style>
 </head>
 
 <body>
 
-  <div class="app">
+  <div class="container">
+    <div class="card">
+      <h1>MindFresh</h1>
+      <p class="subtitle">Connect instantly with people around the world</p>
 
-    <div class="header">
-        <span id="roomCode"></span>
+      <div class="section">
+        <div class="section-title">👤 Your Username</div>
+        <input type="text" id="usernameInput" placeholder="Enter your name..." style="width: 100%; margin-bottom: 20px;" />
+      </div>
+
+      <div class="section">
+        <div class="section-title">🎲 Random Chat</div>
+        <button class="btn btn-primary" onclick="startStrangerChat()">
+          Chat with Random Stranger
+        </button>
+        <div class="feature">
+          <div class="feature-icon">⚡</div>
+          <span>Instant anonymous connections</span>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">⏭️</div>
+          <span>Skip to next stranger anytime</span>
+        </div>
+      </div>
+
+      <div class="divider">OR</div>
+
+      <div class="section">
+        <div class="section-title">🏠 Private Rooms</div>
+        <button class="btn btn-secondary" onclick="createRoom()">
+          Create New Room
+        </button>
+        
+        <div class="input-group">
+          <input type="text" id="roomInput" placeholder="Enter room code..." />
+          <button class="btn btn-secondary" onclick="joinRoom()" style="width: auto; padding: 12px 24px; margin: 0;">
+            Join
+          </button>
+        </div>
+      </div>
+
     </div>
-
-    <div class="chat-area" id="chat"></div>
-
-    <div class="input-area">
-      <input type="file" id="imageInput" hidden>
-      <button class="file-btn" onclick="pickImage()">+</button>
-      <input type="text" id="msg" placeholder="Type message..." />
-      <button class="send-btn" onclick="sendMessage()">Send</button>
-    </div>
-
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-    const params = new URLSearchParams(window.location.search);
-    const roomId = params.get("room");
-    const chat = document.getElementById("chat");
 
-    document.getElementById("roomCode").innerText = roomId;
-
-    socket.emit("join-room", roomId);
-
-    function scrollToBottom() {
-      chat.scrollTop = chat.scrollHeight;
+    // Generate and save username
+    let savedUsername = localStorage.getItem('chatUsername');
+    if (savedUsername) {
+      document.getElementById('usernameInput').value = savedUsername;
     }
 
-    function sendMessage() {
-      const input = document.getElementById("msg");
-      const message = input.value.trim();
-      if (!message) return;
-
-      socket.emit("chat-message", { roomId, message });
-      input.value = "";
-    }
-
-    socket.on("chat-message", (data) => {
-      const div = document.createElement("div");
-      div.classList.add("message");
-      div.classList.add(data.sender === socket.id ? "me" : "other");
-      div.innerText = data.message;
-      chat.appendChild(div);
-      scrollToBottom();
-    });
-
-    function pickImage() {
-      document.getElementById("imageInput").click();
-    }
-
-    function generateId() {
-      return "img_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
-    }
-
-    // Send image
-    document.getElementById("imageInput").addEventListener("change", function () {
-      const file = this.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function () {
-        const imageId = generateId();
-
-        socket.emit("send-image", {
-          roomId,
-          image: reader.result,
-          imageId: imageId
-        });
-      };
-      reader.readAsDataURL(file);
-      this.value = "";
-    });
-
-    // Receive image
-    socket.on("receive-image", (data) => {
-      const div = document.createElement("div");
-      div.classList.add("message");
-      div.classList.add(data.sender === socket.id ? "me" : "other");
-      div.dataset.id = data.imageId;
-
-      const img = document.createElement("img");
-      img.src = data.image;
-      div.appendChild(img);
-
-      if (data.sender === socket.id) {
-        const delBtn = document.createElement("button");
-        delBtn.innerText = "Delete";
-        delBtn.style.marginTop = "6px";
-        delBtn.style.background = "#e74a3b";
-        delBtn.style.color = "white";
-        delBtn.style.border = "none";
-        delBtn.style.padding = "6px 12px";
-        delBtn.style.borderRadius = "10px";
-
-        delBtn.onclick = function () {
-          socket.emit("delete-image", {
-            roomId,
-            imageId: data.imageId
-          });
-        };
-
-        div.appendChild(delBtn);
+    // Save username when typing
+    document.getElementById('usernameInput').addEventListener('input', (e) => {
+      const username = e.target.value.trim();
+      if (username) {
+        localStorage.setItem('chatUsername', username);
+        socket.emit('set-username', username);
       }
-
-      chat.appendChild(div);
-      scrollToBottom();
     });
 
-    // REMOVE IMAGE ON ALL CLIENTS
-    socket.on("remove-image", (imageId) => {
-      const el = chat.querySelector(`[data-id='${imageId}']`);
-      if (el) el.remove();
+    function startStrangerChat() {
+      const username = document.getElementById('usernameInput').value.trim();
+      if (username) {
+        localStorage.setItem('chatUsername', username);
+        socket.emit('set-username', username);
+      }
+      window.location.href = "/stranger.html";
+    }
+
+    function createRoom() {
+      socket.emit("create-room");
+    }
+
+    function joinRoom() {
+      const roomId = document.getElementById("roomInput").value.trim();
+      if (!roomId) {
+        alert("Please enter a room code");
+        return;
+      }
+      window.location.href = `/room.html?room=${roomId}`;
+    }
+
+    socket.on("room-created", (roomId) => {
+      window.location.href = `/room.html?room=${roomId}`;
     });
 
+    // Allow enter key to join room
+    document.getElementById("roomInput").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        joinRoom();
+      }
+    });
   </script>
 
 </body>
