@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Chat Room</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      height: 100vh;
+      background: #f5f6fa;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 420px;
+      height: 100vh;
+      background: white;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      background: #4e73df;
+      color: white;
+      padding: 18px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .chat-area {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .message {
+      max-width: 75%;
+      padding: 12px 14px;
+      border-radius: 18px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      word-wrap: break-word;
+    }
+
+    .me {
+      background: #4e73df;
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: 5px;
+    }
+
+    .other {
+      background: #e4e6eb;
+      align-self: flex-start;
+      border-bottom-left-radius: 5px;
+    }
+
+    .message img {
+      max-width: 100%;
+      border-radius: 12px;
+      margin-top: 5px;
+    }
+
+    .input-area {
+      display: flex;
+      padding: 10px;
+      border-top: 1px solid #ddd;
+      background: white;
+    }
+
+    .input-area input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      border-radius: 20px;
+      border: 1px solid #ddd;
+      font-size: 14px;
+      margin-right: 8px;
+    }
+
+    .send-btn {
+      background: #1cc88a;
+      border: none;
+      color: white;
+      padding: 0 18px;
+      border-radius: 20px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .file-btn {
+      background: #858796;
+      border: none;
+      color: white;
+      padding: 0 12px;
+      border-radius: 20px;
+      margin-right: 8px;
+      cursor: pointer;
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="app">
+
+    <div class="header">
+        <span id="roomCode"></span>
+    </div>
+
+    <div class="chat-area" id="chat"></div>
+
+    <div class="input-area">
+      <input type="file" id="imageInput" hidden>
+      <button class="file-btn" onclick="pickImage()">+</button>
+      <input type="text" id="msg" placeholder="Type message..." />
+      <button class="send-btn" onclick="sendMessage()">Send</button>
+    </div>
+
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get("room");
+    const chat = document.getElementById("chat");
+
+    document.getElementById("roomCode").innerText = roomId;
+
+    socket.emit("join-room", roomId);
+
+    function scrollToBottom() {
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function sendMessage() {
+      const input = document.getElementById("msg");
+      const message = input.value.trim();
+      if (!message) return;
+
+      socket.emit("chat-message", { roomId, message });
+      input.value = "";
+    }
+
+    socket.on("chat-message", (data) => {
+      const div = document.createElement("div");
+      div.classList.add("message");
+      div.classList.add(data.sender === socket.id ? "me" : "other");
+      div.innerText = data.message;
+      chat.appendChild(div);
+      scrollToBottom();
+    });
+
+    function pickImage() {
+      document.getElementById("imageInput").click();
+    }
+
+    function generateId() {
+      return "img_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+    }
+
+    // Send image
+    document.getElementById("imageInput").addEventListener("change", function () {
+      const file = this.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function () {
+        const imageId = generateId();
+
+        socket.emit("send-image", {
+          roomId,
+          image: reader.result,
+          imageId: imageId
+        });
+      };
+      reader.readAsDataURL(file);
+      this.value = "";
+    });
+
+    // Receive image
+    socket.on("receive-image", (data) => {
+      const div = document.createElement("div");
+      div.classList.add("message");
+      div.classList.add(data.sender === socket.id ? "me" : "other");
+      div.dataset.id = data.imageId;
+
+      const img = document.createElement("img");
+      img.src = data.image;
+      div.appendChild(img);
+
+      if (data.sender === socket.id) {
+        const delBtn = document.createElement("button");
+        delBtn.innerText = "Delete";
+        delBtn.style.marginTop = "6px";
+        delBtn.style.background = "#e74a3b";
+        delBtn.style.color = "white";
+        delBtn.style.border = "none";
+        delBtn.style.padding = "6px 12px";
+        delBtn.style.borderRadius = "10px";
+
+        delBtn.onclick = function () {
+          socket.emit("delete-image", {
+            roomId,
+            imageId: data.imageId
+          });
+        };
+
+        div.appendChild(delBtn);
+      }
+
+      chat.appendChild(div);
+      scrollToBottom();
+    });
+
+    // REMOVE IMAGE ON ALL CLIENTS
+    socket.on("remove-image", (imageId) => {
+      const el = chat.querySelector(`[data-id='${imageId}']`);
+      if (el) el.remove();
+    });
+
+  </script>
+
+</body>
+
+</html>
