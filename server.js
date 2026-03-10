@@ -3,6 +3,8 @@ const http = require("http");
 const { Server } = require("socket.io");
 const { v4: uuidv4 } = require("uuid");
 
+const ENABLE_BOT = process.env.ENABLE_BOT === 'true';
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
@@ -10,6 +12,7 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 const rooms = {};
+const roomMessages = {}; // Store messages per room
 const users = {}; // Store connected users
 const waitingUsers = []; // Queue for stranger matching
 const strangerPairs = {}; // Track paired strangers
@@ -34,7 +37,7 @@ const botGreetings = [
 ];
 
 const botNames = [
-  "Alex", "Sam", "Jordan", "Taylor", "Casey", 
+  "Alex", "Sam", "Jordan", "Taylor", "Casey",
   "Morgan", "Riley", "Avery", "Quinn", "Drew",
   "Jamie", "Skylar", "Parker", "Reese", "Dakota"
 ];
@@ -43,7 +46,7 @@ function createBot(realUserId, realUserSocket) {
   const botId = `bot_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
   const botName = botNames[Math.floor(Math.random() * botNames.length)] + Math.floor(Math.random() * 999);
   const roomId = uuidv4();
-  
+
   // Create bot user entry
   users[botId] = {
     id: botId,
@@ -56,16 +59,16 @@ function createBot(realUserId, realUserSocket) {
   // Update real user
   users[realUserId].inStrangerChat = true;
   users[realUserId].partnerId = botId;
-  
+
   strangerPairs[realUserId] = { roomId, partnerId: botId };
   strangerPairs[botId] = { roomId, partnerId: realUserId };
 
   realUserSocket.join(roomId);
 
   // Notify real user
-  realUserSocket.emit("stranger-found", { 
-    roomId, 
-    partnerName: botName 
+  realUserSocket.emit("stranger-found", {
+    roomId,
+    partnerName: botName
   });
 
   // Send random greeting after a brief delay (500ms-1500ms)
@@ -118,7 +121,7 @@ io.on("connection", (socket) => {
     if (waitingUsers.length > 0) {
       const partnerId = waitingUsers.shift();
       const partnerSocket = io.sockets.sockets.get(partnerId);
-      
+
       if (partnerSocket && users[partnerId] && !users[partnerId].inStrangerChat) {
         // Create pair with real user
         const roomId = uuidv4();
@@ -126,20 +129,20 @@ io.on("connection", (socket) => {
         users[socket.id].partnerId = partnerId;
         users[partnerId].inStrangerChat = true;
         users[partnerId].partnerId = socket.id;
-        
+
         strangerPairs[socket.id] = { roomId, partnerId };
         strangerPairs[partnerId] = { roomId, partnerId: socket.id };
 
         socket.join(roomId);
         partnerSocket.join(roomId);
 
-        socket.emit("stranger-found", { 
-          roomId, 
-          partnerName: users[partnerId].username 
+        socket.emit("stranger-found", {
+          roomId,
+          partnerName: users[partnerId].username
         });
-        partnerSocket.emit("stranger-found", { 
-          roomId, 
-          partnerName: users[socket.id].username 
+        partnerSocket.emit("stranger-found", {
+          roomId,
+          partnerName: users[socket.id].username
         });
         // Successfully matched with real user, no bot needed
         return;
@@ -151,18 +154,20 @@ io.on("connection", (socket) => {
       // No one waiting, add to queue
       waitingUsers.push(socket.id);
     }
-    
+
     socket.emit("searching-stranger");
-    
-    // Create bot after 3-5 seconds if still waiting
-    setTimeout(() => {
-      const stillWaiting = waitingUsers.includes(socket.id);
-      if (stillWaiting && users[socket.id] && !users[socket.id].inStrangerChat) {
-        const index = waitingUsers.indexOf(socket.id);
-        if (index > -1) waitingUsers.splice(index, 1);
-        createBot(socket.id, socket);
-      }
-    }, 3000 + Math.floor(Math.random() * 2000));
+
+    // Create bot after 3-5 seconds if still waiting (only if ENABLE_BOT is true)
+    if (ENABLE_BOT) {
+      setTimeout(() => {
+        const stillWaiting = waitingUsers.includes(socket.id);
+        if (stillWaiting && users[socket.id] && !users[socket.id].inStrangerChat) {
+          const index = waitingUsers.indexOf(socket.id);
+          if (index > -1) waitingUsers.splice(index, 1);
+          createBot(socket.id, socket);
+        }
+      }, 3000 + Math.floor(Math.random() * 2000));
+    }
   });
 
   socket.on("skip-stranger", () => {
@@ -220,16 +225,29 @@ io.on("connection", (socket) => {
     socket.join(roomId);
     socket.emit("room-joined", roomId);
 
+    // Send existing messages to the user
+    if (roomMessages[roomId]) {
+      socket.emit("message-history", roomMessages[roomId]);
+    }
+
     socket.to(roomId).emit("user-joined", socket.id);
   });
 
   socket.on("chat-message", ({ roomId, message }) => {
     const username = users[socket.id] ? users[socket.id].username : socket.id;
-    io.to(roomId).emit("chat-message", {
+    const msgData = {
       sender: socket.id,
       username,
-      message
-    });
+      message,
+      timestamp: Date.now()
+    };
+
+    // Store message in room history (keep last 100 messages)
+    if (!roomMessages[roomId]) roomMessages[roomId] = [];
+    roomMessages[roomId].push({ type: 'text', ...msgData });
+    if (roomMessages[roomId].length > 100) roomMessages[roomId].shift();
+
+    io.to(roomId).emit("chat-message", msgData);
   });
 
   socket.on("remove-image", (imageId) => {
@@ -242,16 +260,45 @@ io.on("connection", (socket) => {
   });
   socket.on("send-image", ({ roomId, image, imageId }) => {
     const username = users[socket.id] ? users[socket.id].username : socket.id;
-    io.to(roomId).emit("receive-image", {
+    const imgData = {
       sender: socket.id,
       username,
       image,
-      imageId
-    });
+      imageId,
+      timestamp: Date.now()
+    };
+
+    // Store image in room history
+    if (!roomMessages[roomId]) roomMessages[roomId] = [];
+    roomMessages[roomId].push({ type: 'image', ...imgData });
+    if (roomMessages[roomId].length > 100) roomMessages[roomId].shift();
+
+    io.to(roomId).emit("receive-image", imgData);
   });
 
   socket.on("delete-image", ({ roomId, imageId }) => {
     io.to(roomId).emit("remove-image", imageId);
+  });
+
+  // WebRTC Signaling
+  socket.on("call-user", ({ roomId, offer, isVideoCall }) => {
+    socket.to(roomId).emit("call-made", { offer, isVideoCall });
+  });
+
+  socket.on("make-answer", ({ roomId, answer }) => {
+    socket.to(roomId).emit("answer-made", { answer });
+  });
+
+  socket.on("ice-candidate", ({ roomId, candidate }) => {
+    socket.to(roomId).emit("ice-candidate", { candidate });
+  });
+
+  socket.on("call-rejected", ({ roomId }) => {
+    socket.to(roomId).emit("call-rejected");
+  });
+
+  socket.on("end-call", ({ roomId }) => {
+    socket.to(roomId).emit("call-ended");
   });
 
   socket.on("disconnect", () => {
@@ -264,7 +311,7 @@ io.on("connection", (socket) => {
     // Handle stranger chat disconnect
     if (users[socket.id] && users[socket.id].inStrangerChat && strangerPairs[socket.id]) {
       const { partnerId } = strangerPairs[socket.id];
-      
+
       // Check if partner is a bot
       if (users[partnerId] && users[partnerId].isBot) {
         // Just clean up the bot
@@ -272,7 +319,7 @@ io.on("connection", (socket) => {
         delete strangerPairs[partnerId];
       } else {
         const partnerSocket = io.sockets.sockets.get(partnerId);
-        
+
         if (partnerSocket) {
           partnerSocket.emit("stranger-disconnected");
           if (users[partnerId]) {

@@ -15,7 +15,7 @@
 
     body {
       height: 100vh;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #000;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -28,22 +28,22 @@
     }
 
     .card {
-      background: white;
+      background: #1a1a1a;
       border-radius: 20px;
       padding: 40px 30px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     }
 
     h1 {
       text-align: center;
-      color: #333;
+      color: #fff;
       margin-bottom: 10px;
       font-size: 32px;
     }
 
     .subtitle {
       text-align: center;
-      color: #666;
+      color: #aaa;
       margin-bottom: 40px;
       font-size: 14px;
     }
@@ -54,7 +54,7 @@
 
     .section-title {
       font-size: 12px;
-      color: #999;
+      color: #888;
       text-transform: uppercase;
       letter-spacing: 1px;
       margin-bottom: 12px;
@@ -107,10 +107,16 @@
     input[type="text"] {
       flex: 1;
       padding: 12px 16px;
-      border: 2px solid #e0e0e0;
+      border: 2px solid #333;
       border-radius: 10px;
       font-size: 14px;
       transition: border 0.3s;
+      background: #2a2a2a;
+      color: #fff;
+    }
+
+    input[type="text"]::placeholder {
+      color: #888;
     }
 
     input[type="text"]:focus {
@@ -121,7 +127,7 @@
     .divider {
       text-align: center;
       margin: 30px 0;
-      color: #999;
+      color: #666;
       position: relative;
     }
 
@@ -132,7 +138,7 @@
       top: 50%;
       width: 40%;
       height: 1px;
-      background: #e0e0e0;
+      background: #333;
     }
 
     .divider::before {
@@ -148,14 +154,14 @@
       align-items: center;
       gap: 10px;
       margin-bottom: 15px;
-      color: #666;
+      color: #aaa;
       font-size: 13px;
     }
 
     .feature-icon {
       width: 24px;
       height: 24px;
-      background: #f0f0f0;
+      background: #333;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -199,7 +205,7 @@
         <button class="btn btn-secondary" onclick="createRoom()">
           Create New Room
         </button>
-        
+
         <div class="input-group">
           <input type="text" id="roomInput" placeholder="Enter room code..." />
           <button class="btn btn-secondary" onclick="joinRoom()" style="width: auto; padding: 12px 24px; margin: 0;">

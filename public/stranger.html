@@ -15,7 +15,7 @@
 
     body {
       height: 100vh;
-      background: #f5f6fa;
+      background: #000;
       display: flex;
       justify-content: center;
     }
@@ -24,13 +24,13 @@
       width: 100%;
       max-width: 420px;
       height: 100vh;
-      background: white;
+      background: #1a1a1a;
       display: flex;
       flex-direction: column;
     }
 
     .header {
-      background: #e74a3b;
+      background: #8b2920;
       color: white;
       padding: 18px;
       text-align: center;
@@ -39,6 +39,30 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+    }
+
+    .connection-status {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #1cc88a;
+      display: inline-block;
+      margin-right: 8px;
+    }
+
+    .connection-status.disconnected {
+      background: #e74a3b;
+      animation: blink 1s infinite;
+    }
+
+    .connection-status.reconnecting {
+      background: #f6c23e;
+      animation: blink 0.5s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
     }
 
     .status {
@@ -78,7 +102,8 @@
     }
 
     .other {
-      background: #e4e6eb;
+      background: #333;
+      color: #fff;
       align-self: flex-start;
       border-bottom-left-radius: 5px;
     }
@@ -92,17 +117,23 @@
     .input-area {
       display: flex;
       padding: 10px;
-      border-top: 1px solid #ddd;
-      background: white;
+      border-top: 1px solid #333;
+      background: #1a1a1a;
     }
 
     .input-area input[type="text"] {
       flex: 1;
       padding: 12px;
       border-radius: 20px;
-      border: 1px solid #ddd;
+      border: 1px solid #333;
+      background: #2a2a2a;
+      color: #fff;
       font-size: 14px;
       margin-right: 8px;
+    }
+
+    .input-area input[type="text"]::placeholder {
+      color: #888;
     }
 
     .send-btn {
@@ -123,6 +154,244 @@
       border-radius: 20px;
       margin-right: 8px;
       cursor: pointer;
+    }
+
+    .emoji-btn {
+      background: #f6c23e;
+      border: none;
+      color: #333;
+      padding: 0 12px;
+      border-radius: 20px;
+      margin-right: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .emoji-picker {
+      position: absolute;
+      bottom: 60px;
+      left: 10px;
+      right: 10px;
+      background: #2a2a2a;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      display: none;
+      max-height: 250px;
+      overflow-y: auto;
+      z-index: 100;
+    }
+
+    .emoji-picker.show {
+      display: block;
+    }
+
+    .emoji-tabs {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #444;
+      padding-bottom: 8px;
+    }
+
+    .emoji-tab {
+      padding: 6px 12px;
+      background: #333;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .emoji-tab.active {
+      background: #e74a3b;
+    }
+
+    .emoji-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 5px;
+    }
+
+    .emoji-item {
+      font-size: 22px;
+      padding: 5px;
+      text-align: center;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    .emoji-item:hover {
+      background: #444;
+    }
+
+    .sticker-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .sticker-item {
+      font-size: 40px;
+      padding: 8px;
+      text-align: center;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+
+    .sticker-item:hover {
+      background: #444;
+    }
+
+    .input-wrapper {
+      position: relative;
+      flex: 1;
+      display: flex;
+    }
+
+    .gif-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .gif-item {
+      width: 100%;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .gif-item:hover {
+      transform: scale(1.05);
+    }
+
+    /* Video Call Overlay */
+    .call-overlay {
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 420px;
+      height: 100vh;
+      background: #000;
+      z-index: 1001;
+      display: none;
+      flex-direction: column;
+    }
+
+    .call-overlay.active {
+      display: flex;
+    }
+
+    .video-container {
+      flex: 1;
+      position: relative;
+      background: #1a1a1a;
+    }
+
+    .remote-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #333;
+    }
+
+    .local-video {
+      position: absolute;
+      bottom: 100px;
+      right: 15px;
+      width: 120px;
+      height: 160px;
+      border-radius: 12px;
+      object-fit: cover;
+      background: #222;
+      border: 2px solid #fff;
+    }
+
+    .call-controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 15px;
+    }
+
+    .control-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .control-btn.mute {
+      background: #333;
+      color: white;
+    }
+
+    .control-btn.mute.active {
+      background: #e74a3b;
+    }
+
+    .control-btn.video-toggle {
+      background: #333;
+      color: white;
+    }
+
+    .control-btn.video-toggle.active {
+      background: #e74a3b;
+    }
+
+    .control-btn.end-call {
+      background: #e74a3b;
+      color: white;
+    }
+
+    .call-status {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-size: 14px;
+      background: rgba(0,0,0,0.5);
+      padding: 8px 16px;
+      border-radius: 20px;
+    }
+
+    .header-buttons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .call-btn {
+      background: #1cc88a;
+      border: none;
+      color: white;
+      padding: 6px 10px;
+      border-radius: 15px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .call-btn.video {
+      background: #4e73df;
+    }
+
+    .call-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .skip-btn {
@@ -216,10 +485,10 @@
       text-align: center;
       padding: 10px;
       margin: 10px 0;
-      background: #ffeaa7;
+      background: #3d3d00;
       border-radius: 10px;
       font-size: 13px;
-      color: #333;
+      color: #ffeaa7;
     }
   </style>
 </head>
@@ -230,21 +499,52 @@
 
     <div class="header">
       <div>
-        <div>Stranger Chat</div>
+        <div><span class="connection-status" id="connectionStatus"></span>Stranger Chat</div>
         <div class="status" id="status">Finding stranger...</div>
       </div>
-      <button class="skip-btn" onclick="skipStranger()" id="skipBtn" disabled>Skip</button>
+      <div class="header-buttons">
+        <button class="call-btn" onclick="startCall(false)" id="voiceCallBtn" disabled title="Voice Call">🎤</button>
+        <button class="call-btn video" onclick="startCall(true)" id="videoCallBtn" disabled title="Video Call">📹</button>
+        <button class="skip-btn" onclick="skipStranger()" id="skipBtn" disabled>Skip</button>
+      </div>
     </div>
 
     <div class="chat-area" id="chat"></div>
 
     <div class="input-area">
-      <input type="file" id="imageInput" hidden>
+      <input type="file" id="imageInput" accept="image/*,image/gif" hidden>
       <button class="file-btn" onclick="pickImage()" id="imgBtn" disabled>+</button>
-      <input type="text" id="msg" placeholder="Waiting for stranger..." disabled />
+      <button class="emoji-btn" onclick="toggleEmojiPicker()" id="emojiBtn" disabled>😊</button>
+      <div class="input-wrapper">
+        <div class="emoji-picker" id="emojiPicker">
+          <div class="emoji-tabs">
+            <button class="emoji-tab active" onclick="showTab('emojis')">😀 Emoji</button>
+            <button class="emoji-tab" onclick="showTab('stickers')">🎉 Stickers</button>
+            <button class="emoji-tab" onclick="showTab('gifs')">GIF</button>
+          </div>
+          <div id="emojis" class="emoji-grid"></div>
+          <div id="stickers" class="sticker-grid" style="display:none;"></div>
+          <div id="gifs" class="gif-grid" style="display:none;"></div>
+        </div>
+        <input type="text" id="msg" placeholder="Waiting for stranger..." disabled style="width:100%;" />
+      </div>
       <button class="send-btn" onclick="sendMessage()" id="sendBtn" disabled>Send</button>
     </div>
 
+  </div>
+
+  <!-- Video Call Overlay -->
+  <div class="call-overlay" id="callOverlay">
+    <div class="video-container">
+      <video class="remote-video" id="remoteVideo" autoplay playsinline></video>
+      <video class="local-video" id="localVideo" autoplay playsinline muted></video>
+      <div class="call-status" id="callStatus">Calling...</div>
+      <div class="call-controls">
+        <button class="control-btn mute active" id="muteBtn" onclick="toggleMute()">🎤</button>
+        <button class="control-btn video-toggle" id="videoBtn" onclick="toggleVideo()">📹</button>
+        <button class="control-btn end-call" onclick="endCall()">📞</button>
+      </div>
+    </div>
   </div>
 
   <!-- Searching Overlay -->
@@ -269,29 +569,71 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
+    const socket = io({
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000
+    });
     const chat = document.getElementById("chat");
     const msgInput = document.getElementById("msg");
     const sendBtn = document.getElementById("sendBtn");
     const imgBtn = document.getElementById("imgBtn");
+    const emojiBtn = document.getElementById("emojiBtn");
     const skipBtn = document.getElementById("skipBtn");
+    const voiceCallBtn = document.getElementById("voiceCallBtn");
+    const videoCallBtn = document.getElementById("videoCallBtn");
     const status = document.getElementById("status");
+    const connectionStatus = document.getElementById("connectionStatus");
     const searchOverlay = document.getElementById("searchOverlay");
     const disconnectOverlay = document.getElementById("disconnectOverlay");
 
     let currentRoomId = null;
     let partnerName = "Stranger";
     let myUsername = "You";
+    let wasConnected = false;
 
-    // Load saved username
-    const savedUsername = localStorage.getItem('chatUsername');
-    if (savedUsername) {
-      myUsername = savedUsername;
-      socket.emit('set-username', savedUsername);
-    }
+    // Connection status handling
+    socket.on("connect", () => {
+      console.log("Socket connected");
+      connectionStatus.className = "connection-status";
+      connectionStatus.title = "Connected";
 
-    // Start searching immediately
-    socket.emit("find-stranger");
+      // Load saved username
+      const savedUsername = localStorage.getItem('chatUsername');
+      if (savedUsername) {
+        myUsername = savedUsername;
+        socket.emit('set-username', savedUsername);
+      }
+
+      // If we were previously connected and searching, restart search
+      if (!wasConnected) {
+        socket.emit("find-stranger");
+        wasConnected = true;
+      }
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Socket disconnected");
+      connectionStatus.className = "connection-status disconnected";
+      connectionStatus.title = "Disconnected - Reconnecting...";
+    });
+
+    socket.on("reconnecting", () => {
+      connectionStatus.className = "connection-status reconnecting";
+      connectionStatus.title = "Reconnecting...";
+    });
+
+    socket.on("reconnect", () => {
+      console.log("Socket reconnected");
+      connectionStatus.className = "connection-status";
+      connectionStatus.title = "Connected";
+
+      // Rejoin room if we had one
+      if (currentRoomId) {
+        socket.emit("join-room", currentRoomId);
+      }
+    });
 
     socket.on("user-info", (user) => {
       myUsername = user.username;
@@ -307,13 +649,16 @@
       partnerName = data.partnerName;
       searchOverlay.classList.add("hidden");
       status.innerText = `Chatting with ${partnerName}`;
-      
+
       // Enable chat
       msgInput.disabled = false;
       msgInput.placeholder = "Type message...";
       sendBtn.disabled = false;
       imgBtn.disabled = false;
+      emojiBtn.disabled = false;
       skipBtn.disabled = false;
+      voiceCallBtn.disabled = false;
+      videoCallBtn.disabled = false;
 
       // Add welcome message
       addSystemMessage(`Connected to ${partnerName}`);
@@ -341,7 +686,11 @@
       msgInput.placeholder = "Chat ended";
       sendBtn.disabled = true;
       imgBtn.disabled = true;
+      emojiBtn.disabled = true;
       skipBtn.disabled = true;
+      voiceCallBtn.disabled = true;
+      videoCallBtn.disabled = true;
+      endCall();
     }
 
     function scrollToBottom() {
@@ -388,7 +737,7 @@
     socket.on("chat-message", (data) => {
       const div = document.createElement("div");
       div.classList.add("message");
-      
+
       const isMe = data.sender === socket.id;
       div.classList.add(isMe ? "me" : "other");
 
@@ -438,7 +787,7 @@
     socket.on("receive-image", (data) => {
       const div = document.createElement("div");
       div.classList.add("message");
-      
+
       const isMe = data.sender === socket.id;
       div.classList.add(isMe ? "me" : "other");
       div.dataset.id = data.imageId;
@@ -490,6 +839,266 @@
         sendMessage();
       }
     });
+
+    // Emoji/Sticker Picker
+    const emojis = ['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','😘','🥰','😗','😙','🥲','😚','☺️','🙂','🤗','🤩','🤔','🤨','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','🥱','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕','🙃','🤑','😲','☹️','🙁','😖','😞','😟','😤','😢','😭','😦','😧','😨','😩','🤯','😬','😰','😱','🥵','🥶','😳','🤪','😵','🥴','😠','😡','🤬','😷','🤒','🤕','🤢','🤮','🤧','😇','🥳','🥺','🤠','🤡','🤥','🤫','🤭','🧐','🤓','😈','👿','👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️','💪','🦾','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟'];
+    const stickersData = ['🎉','🎊','🎈','🎁','🏆','⭐','🌟','✨','💫','🔥','💥','💯','🎯','🚀','💎','👑','🦄','🐱','🐶','🐼','🦊','🦁','🐯','🐸','🐵','🙈','🙉','🙊','💀','👻','👽','🤖','💩','🎃','🌈','☀️','🌙','⚡','❄️','🌊','🌸','🌺','🍀','🍕','🍔','🍟','🍩','🍪','🎂','🍰','☕','🍺','🥂','🎵','🎶','🎸','🎮','🎲','⚽','🏀','🎾','🏈'];
+
+    const emojiGrid = document.getElementById('emojis');
+    const stickerGrid = document.getElementById('stickers');
+    const emojiPicker = document.getElementById('emojiPicker');
+
+    emojis.forEach(emoji => {
+      const span = document.createElement('span');
+      span.className = 'emoji-item';
+      span.innerText = emoji;
+      span.onclick = () => insertEmoji(emoji);
+      emojiGrid.appendChild(span);
+    });
+
+    stickersData.forEach(sticker => {
+      const span = document.createElement('span');
+      span.className = 'sticker-item';
+      span.innerText = sticker;
+      span.onclick = () => sendSticker(sticker);
+      stickerGrid.appendChild(span);
+    });
+
+    function toggleEmojiPicker() {
+      emojiPicker.classList.toggle('show');
+    }
+
+    function showTab(tab) {
+      document.querySelectorAll('.emoji-tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('emojis').style.display = tab === 'emojis' ? 'grid' : 'none';
+      document.getElementById('stickers').style.display = tab === 'stickers' ? 'grid' : 'none';
+      document.getElementById('gifs').style.display = tab === 'gifs' ? 'grid' : 'none';
+    }
+
+    function insertEmoji(emoji) {
+      msgInput.value += emoji;
+      msgInput.focus();
+    }
+
+    function sendSticker(sticker) {
+      if (!currentRoomId) return;
+      socket.emit("chat-message", { roomId: currentRoomId, message: sticker });
+      emojiPicker.classList.remove('show');
+    }
+
+    // Close emoji picker when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.emoji-picker') && !e.target.closest('.emoji-btn')) {
+        emojiPicker.classList.remove('show');
+      }
+    });
+
+    // GIF Support
+    const gifs = [
+      'https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif',
+      'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
+      'https://media.giphy.com/media/3o7TKSjRrfIPjeiVyg/giphy.gif',
+      'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif',
+      'https://media.giphy.com/media/l3q2K5jinAlChoCLS/giphy.gif',
+      'https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/giphy.gif',
+      'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif',
+      'https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif',
+      'https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif',
+      'https://media.giphy.com/media/l4FGGafcOHmrlQxG0/giphy.gif',
+      'https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif',
+      'https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif'
+    ];
+
+    const gifGrid = document.getElementById('gifs');
+    gifs.forEach(gif => {
+      const img = document.createElement('img');
+      img.className = 'gif-item';
+      img.src = gif;
+      img.onclick = () => sendGif(gif);
+      gifGrid.appendChild(img);
+    });
+
+    function sendGif(gifUrl) {
+      if (!currentRoomId) return;
+      const imageId = generateId();
+      socket.emit("send-image", {
+        roomId: currentRoomId,
+        image: gifUrl,
+        imageId: imageId
+      });
+      emojiPicker.classList.remove('show');
+    }
+
+    // WebRTC Video/Voice Call
+    let localStream = null;
+    let peerConnection = null;
+    let isMuted = true; // Default muted
+    let isVideoOff = false;
+    let isVideoCall = false;
+
+    const config = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    };
+
+    async function startCall(withVideo) {
+      if (!currentRoomId) return;
+      isVideoCall = withVideo;
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: withVideo
+        });
+
+        // Default muted
+        localStream.getAudioTracks().forEach(track => track.enabled = false);
+        isMuted = true;
+        document.getElementById('muteBtn').classList.add('active');
+
+        document.getElementById('localVideo').srcObject = localStream;
+        document.getElementById('callOverlay').classList.add('active');
+        document.getElementById('callStatus').innerText = 'Calling...';
+
+        if (!withVideo) {
+          document.getElementById('localVideo').style.display = 'none';
+          document.getElementById('videoBtn').style.display = 'none';
+        } else {
+          document.getElementById('localVideo').style.display = 'block';
+          document.getElementById('videoBtn').style.display = 'flex';
+        }
+
+        createPeerConnection();
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+
+        socket.emit('call-user', { roomId: currentRoomId, offer, isVideoCall: withVideo });
+      } catch (err) {
+        console.error('Error starting call:', err);
+        alert('Could not access camera/microphone');
+      }
+    }
+
+    function createPeerConnection() {
+      peerConnection = new RTCPeerConnection(config);
+
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+
+      peerConnection.ontrack = (event) => {
+        document.getElementById('remoteVideo').srcObject = event.streams[0];
+        document.getElementById('callStatus').innerText = 'Connected';
+      };
+
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', { roomId: currentRoomId, candidate: event.candidate });
+        }
+      };
+
+      peerConnection.onconnectionstatechange = () => {
+        if (peerConnection.connectionState === 'disconnected') {
+          endCall();
+        }
+      };
+    }
+
+    socket.on('call-made', async (data) => {
+      if (confirm('Incoming ' + (data.isVideoCall ? 'video' : 'voice') + ' call. Accept?')) {
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: data.isVideoCall
+          });
+
+          // Default muted
+          localStream.getAudioTracks().forEach(track => track.enabled = false);
+          isMuted = true;
+          document.getElementById('muteBtn').classList.add('active');
+
+          document.getElementById('localVideo').srcObject = localStream;
+          document.getElementById('callOverlay').classList.add('active');
+
+          if (!data.isVideoCall) {
+            document.getElementById('localVideo').style.display = 'none';
+            document.getElementById('videoBtn').style.display = 'none';
+          } else {
+            document.getElementById('localVideo').style.display = 'block';
+            document.getElementById('videoBtn').style.display = 'flex';
+          }
+
+          createPeerConnection();
+
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+          const answer = await peerConnection.createAnswer();
+          await peerConnection.setLocalDescription(answer);
+
+          socket.emit('make-answer', { roomId: currentRoomId, answer });
+          document.getElementById('callStatus').innerText = 'Connected';
+        } catch (err) {
+          console.error('Error answering call:', err);
+        }
+      } else {
+        socket.emit('call-rejected', { roomId: currentRoomId });
+      }
+    });
+
+    socket.on('answer-made', async (data) => {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      document.getElementById('callStatus').innerText = 'Connected';
+    });
+
+    socket.on('ice-candidate', async (data) => {
+      if (peerConnection) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
+    });
+
+    socket.on('call-rejected', () => {
+      alert('Call was rejected');
+      endCall();
+    });
+
+    socket.on('call-ended', () => {
+      endCall();
+    });
+
+    function toggleMute() {
+      if (localStream) {
+        isMuted = !isMuted;
+        localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
+        document.getElementById('muteBtn').classList.toggle('active', isMuted);
+      }
+    }
+
+    function toggleVideo() {
+      if (localStream) {
+        isVideoOff = !isVideoOff;
+        localStream.getVideoTracks().forEach(track => track.enabled = !isVideoOff);
+        document.getElementById('videoBtn').classList.toggle('active', isVideoOff);
+      }
+    }
+
+    function endCall() {
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      document.getElementById('callOverlay').classList.remove('active');
+      document.getElementById('remoteVideo').srcObject = null;
+      document.getElementById('localVideo').srcObject = null;
+      if (currentRoomId) {
+        socket.emit('end-call', { roomId: currentRoomId });
+      }
+    }
 
   </script>
 
