@@ -64,8 +64,15 @@
     }
 
     @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
     }
 
     .header-buttons {
@@ -189,7 +196,7 @@
       background: #2a2a2a;
       border-radius: 12px;
       padding: 10px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       display: none;
       max-height: 250px;
       overflow-y: auto;
@@ -378,7 +385,7 @@
       transform: translateX(-50%);
       color: white;
       font-size: 14px;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0, 0, 0, 0.5);
       padding: 8px 16px;
       border-radius: 20px;
     }
@@ -392,7 +399,7 @@
       width: 100%;
       max-width: 420px;
       height: 100vh;
-      background: rgba(0,0,0,0.9);
+      background: rgba(0, 0, 0, 0.9);
       z-index: 1002;
       display: none;
       flex-direction: column;
@@ -427,8 +434,15 @@
     }
 
     @keyframes pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.1); }
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.1);
+      }
     }
 
     .incoming-call-buttons {
@@ -721,13 +735,107 @@
       }
     });
 
+    // Auto-convert emoji shortcodes (e.g., :smile: → 😀)
+    document.getElementById("msg").addEventListener("input", (e) => {
+      const input = e.target;
+      const text = input.value;
+      const shortcodePattern = /:[a-zA-Z0-9_+-]+:/g;
+      let newText = text;
+      let match;
+
+      while ((match = shortcodePattern.exec(text)) !== null) {
+        const shortcode = match[0].toLowerCase();
+        if (emojiShortcodes[shortcode]) {
+          newText = newText.replace(match[0], emojiShortcodes[shortcode]);
+        }
+      }
+
+      if (newText !== text) {
+        const cursorPos = input.selectionStart;
+        const diff = text.length - newText.length;
+        input.value = newText;
+        input.setSelectionRange(cursorPos - diff, cursorPos - diff);
+      }
+    });
+
     // Emoji/Sticker Picker
-    const emojis = ['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','😘','🥰','😗','😙','🥲','😚','☺️','🙂','🤗','🤩','🤔','🤨','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','🥱','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕','🙃','🤑','😲','☹️','🙁','😖','😞','😟','😤','😢','😭','😦','😧','😨','😩','🤯','😬','😰','😱','🥵','🥶','😳','🤪','😵','🥴','😠','😡','🤬','😷','🤒','🤕','🤢','🤮','🤧','😇','🥳','🥺','🤠','🤡','🤥','🤫','🤭','🧐','🤓','😈','👿','👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️','💪','🦾','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟'];
-    const stickers = ['🎉','🎊','🎈','🎁','🏆','⭐','🌟','✨','💫','🔥','💥','💯','🎯','🚀','💎','👑','🦄','🐱','🐶','🐼','🦊','🦁','🐯','🐸','🐵','🙈','🙉','🙊','💀','👻','👽','🤖','💩','🎃','🌈','☀️','🌙','⚡','❄️','🌊','🌸','🌺','🍀','🍕','🍔','🍟','🍩','🍪','🎂','🍰','☕','🍺','🥂','🎵','🎶','🎸','🎮','🎲','⚽','🏀','🎾','🏈'];
+    const emojis = ['😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '🥰', '😗', '😙', '🥲', '😚', '☺️', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '🥱', '😴', '😌', '😛', '😜', '😝', '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '☹️', '🙁', '😖', '😞', '😟', '😤', '😢', '😭', '😦', '😧', '😨', '😩', '🤯', '😬', '😰', '😱', '🥵', '🥶', '😳', '🤪', '😵', '🥴', '😠', '😡', '🤬', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '😇', '🥳', '🥺', '🤠', '🤡', '🤥', '🤫', '🤭', '🧐', '🤓', '😈', '👿', '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💪', '🦾', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟'];
+    const stickers = ['🎉', '🎊', '🎈', '🎁', '🏆', '⭐', '🌟', '✨', '💫', '🔥', '💥', '💯', '🎯', '🚀', '💎', '👑', '🦄', '🐱', '🐶', '🐼', '🦊', '🦁', '🐯', '🐸', '🐵', '🙈', '🙉', '🙊', '💀', '👻', '👽', '🤖', '💩', '🎃', '🌈', '☀️', '🌙', '⚡', '❄️', '🌊', '🌸', '🌺', '🍀', '🍕', '🍔', '🍟', '🍩', '🍪', '🎂', '🍰', '☕', '🍺', '🥂', '🎵', '🎶', '🎸', '🎮', '🎲', '⚽', '🏀', '🎾', '🏈', '🍆',
+      '🍑',
+      '🍒',
+      '🍈',
+      '🥛',
+      '🛥️',
+      '🐱',
+      '🌮',
+      '🐓',
+      '🧱',
+      '👅',
+      '💦',
+      '🧬',
+      '🥜',
+      '🧠',
+      '✂️',
+      '😈',
+      '🥵',
+      '🌶️',
+      '🍜',
+      '🌽',
+      '🍍',
+      '🪑',
+      '🎂',
+      '🥞',
+      '🚛',
+      '🔵',
+      '🟠',
+      '💊',
+      '🍬',
+      '🍁',
+      '❄️',
+      '🎱',
+      '🔑',
+      '🤥',
+      '⚙️'];
 
     const emojiGrid = document.getElementById('emojis');
     const stickerGrid = document.getElementById('stickers');
     const emojiPicker = document.getElementById('emojiPicker');
+
+    // Emoji shortcode mapping
+    const emojiShortcodes = {
+      ':smile:': '😀', ':grin:': '😁', ':joy:': '😂', ':rofl:': '🤣', ':smiley:': '😃',
+      ':happy:': '😄', ':sweat_smile:': '😅', ':laughing:': '😆', ':wink:': '😉', ':blush:': '😊',
+      ':yum:': '😋', ':sunglasses:': '😎', ':heart_eyes:': '😍', ':kiss:': '😘', ':love:': '🥰',
+      ':kissing:': '😗', ':thinking:': '🤔', ':neutral:': '😐', ':expressionless:': '😑',
+      ':unamused:': '😒', ':rolling_eyes:': '🙄', ':smirk:': '😏', ':relieved:': '😌',
+      ':sleepy:': '😪', ':tired:': '😫', ':sleeping:': '😴', ':tongue:': '😛', ':crazy:': '😜',
+      ':money:': '🤑', ':astonished:': '😲', ':frown:': '☹️', ':worried:': '😟', ':angry:': '😠',
+      ':rage:': '😡', ':cry:': '😢', ':sob:': '😭', ':fearful:': '😨', ':scream:': '😱',
+      ':cold:': '🥶', ':hot:': '🥵', ':flushed:': '😳', ':dizzy:': '😵', ':exploding:': '🤯',
+      ':mask:': '😷', ':sick:': '🤒', ':nauseated:': '🤢', ':vomit:': '🤮', ':angel:': '😇',
+      ':party:': '🥳', ':pleading:': '🥺', ':cowboy:': '🤠', ':clown:': '🤡', ':nerd:': '🤓',
+      ':devil:': '😈', ':imp:': '👿', ':wave:': '👋', ':ok:': '👌', ':v:': '✌️',
+      ':fingers_crossed:': '🤞', ':rock:': '🤘', ':call:': '🤙', ':point_left:': '👈',
+      ':point_right:': '👉', ':point_up:': '👆', ':point_down:': '👇', ':thumbsup:': '👍',
+      ':thumbs_up:': '👍', ':+1:': '👍', ':thumbsdown:': '👎', ':thumbs_down:': '👎', ':-1:': '👎',
+      ':fist:': '✊', ':punch:': '👊', ':clap:': '👏', ':raised_hands:': '🙌', ':pray:': '🙏',
+      ':muscle:': '💪', ':heart:': '❤️', ':red_heart:': '❤️', ':orange_heart:': '🧡',
+      ':yellow_heart:': '💛', ':green_heart:': '💚', ':blue_heart:': '💙', ':purple_heart:': '💜',
+      ':black_heart:': '🖤', ':white_heart:': '🤍', ':broken_heart:': '💔', ':fire:': '🔥',
+      ':100:': '💯', ':star:': '⭐', ':sparkles:': '✨', ':boom:': '💥', ':rocket:': '🚀',
+      ':gem:': '💎', ':crown:': '👑', ':unicorn:': '🦄', ':cat:': '🐱', ':dog:': '🐶',
+      ':panda:': '🐼', ':fox:': '🦊', ':lion:': '🦁', ':tiger:': '🐯', ':frog:': '🐸',
+      ':monkey:': '🐵', ':see_no_evil:': '🙈', ':hear_no_evil:': '🙉', ':speak_no_evil:': '🙊',
+      ':skull:': '💀', ':ghost:': '👻', ':alien:': '👽', ':robot:': '🤖', ':poop:': '💩',
+      ':pumpkin:': '🎃', ':rainbow:': '🌈', ':sun:': '☀️', ':moon:': '🌙', ':lightning:': '⚡',
+      ':snowflake:': '❄️', ':wave_water:': '🌊', ':cherry_blossom:': '🌸', ':clover:': '🍀',
+      ':pizza:': '🍕', ':burger:': '🍔', ':fries:': '🍟', ':donut:': '🍩', ':cookie:': '🍪',
+      ':cake:': '🎂', ':coffee:': '☕', ':beer:': '🍺', ':cheers:': '🥂', ':music:': '🎵',
+      ':guitar:': '🎸', ':game:': '🎮', ':dice:': '🎲', ':soccer:': '⚽', ':basketball:': '🏀',
+      ':football:': '🏈', ':tada:': '🎉', ':confetti:': '🎊', ':balloon:': '🎈', ':gift:': '🎁',
+      ':trophy:': '🏆', ':lol:': '😂', ':haha:': '😂', ':xd:': '😆', ':omg:': '😱',
+      ':wtf:': '🤯', ':cool:': '😎', ':sad:': '😢', ':mad:': '😠', ':scared:': '😨'
+    };
 
     emojis.forEach(emoji => {
       const span = document.createElement('span');

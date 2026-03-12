@@ -301,6 +301,12 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("call-ended");
   });
 
+  // Typing indicator
+  socket.on("typing", ({ roomId, isTyping }) => {
+    const username = users[socket.id] ? users[socket.id].username : "Stranger";
+    socket.to(roomId).emit("stranger-typing", { isTyping, username });
+  });
+
   socket.on("disconnect", () => {
     // Remove from waiting list
     const waitIndex = waitingUsers.indexOf(socket.id);
