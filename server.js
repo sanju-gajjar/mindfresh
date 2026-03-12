@@ -12,6 +12,7 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 const rooms = {};
+const roomMembers = {}; // Track members per room (max 2)
 const roomMessages = {}; // Store messages per room
 const users = {}; // Store connected users
 const waitingUsers = []; // Queue for stranger matching
@@ -216,19 +217,52 @@ io.on("connection", (socket) => {
   });
 
   socket.on("join-room", (roomId) => {
-
     // If room doesn't exist → create it automatically
     if (!rooms[roomId]) {
       rooms[roomId] = true;
+      roomMembers[roomId] = [];
+    }
+
+    // Check if room is full (max 2 members)
+    if (roomMembers[roomId] && roomMembers[roomId].length >= 2) {
+      // Check if this user is already in the room (reconnection)
+      const existingMember = roomMembers[roomId].find(m => m.id === socket.id);
+      if (!existingMember) {
+        socket.emit("room-full");
+        return;
+      }
     }
 
     socket.join(roomId);
+
+    // Add user to room members if not already there
+    const username = users[socket.id] ? users[socket.id].username : `User${Math.floor(Math.random() * 9999)}`;
+    const existingMemberIndex = roomMembers[roomId].findIndex(m => m.id === socket.id);
+
+    if (existingMemberIndex === -1) {
+      roomMembers[roomId].push({
+        id: socket.id,
+        username: username,
+        isOnline: true
+      });
+    } else {
+      roomMembers[roomId][existingMemberIndex].isOnline = true;
+    }
+
+    // Store the roomId in user data
+    if (users[socket.id]) {
+      users[socket.id].currentRoom = roomId;
+    }
+
     socket.emit("room-joined", roomId);
 
     // Send existing messages to the user
     if (roomMessages[roomId]) {
       socket.emit("message-history", roomMessages[roomId]);
     }
+
+    // Emit room members to all users in the room
+    io.to(roomId).emit("room-members", roomMembers[roomId]);
 
     socket.to(roomId).emit("user-joined", socket.id);
   });
@@ -336,6 +370,19 @@ io.on("connection", (socket) => {
         }
       }
       delete strangerPairs[socket.id];
+    }
+
+    // Handle room disconnect - mark user as offline but keep in room
+    if (users[socket.id] && users[socket.id].currentRoom) {
+      const roomId = users[socket.id].currentRoom;
+      if (roomMembers[roomId]) {
+        const memberIndex = roomMembers[roomId].findIndex(m => m.id === socket.id);
+        if (memberIndex !== -1) {
+          roomMembers[roomId][memberIndex].isOnline = false;
+          // Emit updated room members to remaining users
+          io.to(roomId).emit("room-members", roomMembers[roomId]);
+        }
+      }
     }
 
     // Clean up user

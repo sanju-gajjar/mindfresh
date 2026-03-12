@@ -80,6 +80,53 @@
       gap: 8px;
     }
 
+    .room-members {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 8px 18px;
+      background: #232853;
+      border-bottom: 1px solid #333;
+    }
+
+    .member-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #333;
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 12px;
+      color: #fff;
+    }
+
+    .member-badge .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #e74a3b;
+    }
+
+    .member-badge .status-dot.online {
+      background: #1cc88a;
+    }
+
+    .member-badge.you {
+      background: #4e73df;
+    }
+
+    .members-label {
+      color: #888;
+      font-size: 11px;
+      margin-right: 4px;
+    }
+
+    .waiting-badge {
+      color: #888;
+      font-style: italic;
+      font-size: 12px;
+    }
+
     .call-btn {
       background: #1cc88a;
       border: none;
@@ -490,6 +537,11 @@
       </div>
     </div>
 
+    <div class="room-members" id="roomMembers">
+      <span class="members-label">In Room:</span>
+      <span class="waiting-badge">Waiting for users...</span>
+    </div>
+
     <div class="chat-area" id="chat"></div>
 
     <div class="input-area">
@@ -580,6 +632,42 @@
       console.log("Socket reconnected");
       connectionStatus.className = "connection-status";
       connectionStatus.title = "Connected";
+    });
+
+    // Room full handling
+    socket.on("room-full", () => {
+      alert("This room is full (max 2 members). You cannot join.");
+      window.location.href = "/";
+    });
+
+    // Room members handling
+    socket.on("room-members", (members) => {
+      const roomMembersDiv = document.getElementById("roomMembers");
+      let html = '<span class="members-label">In Room:</span>';
+
+      if (members.length === 0) {
+        html += '<span class="waiting-badge">Waiting for users...</span>';
+      } else {
+        members.forEach(member => {
+          const isYou = member.id === socket.id;
+          const statusClass = member.isOnline ? 'online' : '';
+          const youClass = isYou ? 'you' : '';
+          const label = isYou ? `${member.username} (You)` : member.username;
+          const statusTitle = member.isOnline ? 'Online' : 'Offline';
+          html += `
+            <div class="member-badge ${youClass}" title="${statusTitle}">
+              <span class="status-dot ${statusClass}"></span>
+              <span>${label}</span>
+            </div>
+          `;
+        });
+
+        if (members.length < 2) {
+          html += '<span class="waiting-badge">+ Waiting for 1 more...</span>';
+        }
+      }
+
+      roomMembersDiv.innerHTML = html;
     });
 
     // Load message history
