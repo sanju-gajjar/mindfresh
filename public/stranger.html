@@ -364,6 +364,142 @@
       color: white;
     }
 
+    .control-btn.minimize {
+      background: #4e73df;
+      color: white;
+    }
+
+    /* Floating Video (Picture-in-Picture while chatting) */
+    .floating-video-container {
+      position: fixed;
+      top: 60px;
+      right: 10px;
+      width: 150px;
+      height: 200px;
+      background: #1a1a1a;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+      z-index: 500;
+      display: none;
+      flex-direction: column;
+      border: 2px solid #333;
+    }
+
+    .floating-video-container.active {
+      display: flex;
+    }
+
+    .floating-video-container.expanded {
+      width: 280px;
+      height: 380px;
+    }
+
+    .floating-remote-video {
+      width: 100%;
+      height: calc(100% - 35px);
+      object-fit: cover;
+      background: #222;
+    }
+
+    .floating-local-video {
+      position: absolute;
+      bottom: 40px;
+      right: 5px;
+      width: 50px;
+      height: 65px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #333;
+      border: 1px solid #fff;
+    }
+
+    .floating-video-container.expanded .floating-local-video {
+      width: 80px;
+      height: 100px;
+    }
+
+    .floating-controls {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 5px;
+      background: rgba(0, 0, 0, 0.7);
+      height: 35px;
+    }
+
+    .floating-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .floating-btn.mute {
+      background: #333;
+      color: white;
+    }
+
+    .floating-btn.mute.active {
+      background: #e74a3b;
+    }
+
+    .floating-btn.video-off {
+      background: #333;
+      color: white;
+    }
+
+    .floating-btn.video-off.active {
+      background: #e74a3b;
+    }
+
+    .floating-btn.expand {
+      background: #4e73df;
+      color: white;
+    }
+
+    .floating-btn.end {
+      background: #e74a3b;
+      color: white;
+    }
+
+    .floating-btn.fullscreen {
+      background: #1cc88a;
+      color: white;
+    }
+
+    .floating-video-header {
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      right: 5px;
+      display: flex;
+      justify-content: space-between;
+      z-index: 10;
+    }
+
+    .floating-video-status {
+      background: rgba(0, 0, 0, 0.6);
+      color: #1cc88a;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 10px;
+    }
+
+    .drag-handle {
+      cursor: move;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 10px;
+    }
+
     .call-status {
       position: absolute;
       top: 20px;
@@ -594,8 +730,26 @@
       <div class="call-controls">
         <button class="control-btn mute active" id="muteBtn" onclick="toggleMute()">🎤</button>
         <button class="control-btn video-toggle" id="videoBtn" onclick="toggleVideo()">📹</button>
+        <button class="control-btn minimize" onclick="minimizeCall()" title="Chat while on call">💬</button>
         <button class="control-btn end-call" onclick="endCall()">📞</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Floating Video (PiP mode for chat while on call) -->
+  <div class="floating-video-container" id="floatingVideo">
+    <div class="floating-video-header">
+      <span class="floating-video-status" id="floatingStatus">● Live</span>
+      <span class="drag-handle" id="dragHandle">⋮⋮</span>
+    </div>
+    <video class="floating-remote-video" id="floatingRemoteVideo" autoplay playsinline></video>
+    <video class="floating-local-video" id="floatingLocalVideo" autoplay playsinline muted></video>
+    <div class="floating-controls">
+      <button class="floating-btn mute active" id="floatingMuteBtn" onclick="toggleMute()">🎤</button>
+      <button class="floating-btn video-off" id="floatingVideoBtn" onclick="toggleVideo()">📹</button>
+      <button class="floating-btn expand" onclick="toggleFloatingSize()" title="Expand/Shrink">⤢</button>
+      <button class="floating-btn fullscreen" onclick="maximizeCall()" title="Full screen">⛶</button>
+      <button class="floating-btn end" onclick="endCall()">✕</button>
     </div>
   </div>
 
@@ -1241,12 +1395,135 @@
         peerConnection = null;
       }
       document.getElementById('callOverlay').classList.remove('active');
+      document.getElementById('floatingVideo').classList.remove('active');
       document.getElementById('remoteVideo').srcObject = null;
       document.getElementById('localVideo').srcObject = null;
+      document.getElementById('floatingRemoteVideo').srcObject = null;
+      document.getElementById('floatingLocalVideo').srcObject = null;
       if (currentRoomId) {
         socket.emit('end-call', { roomId: currentRoomId });
       }
     }
+
+    // Minimize call to floating PiP mode (chat while seeing video)
+    function minimizeCall() {
+      const remoteStream = document.getElementById('remoteVideo').srcObject;
+      const localStream = document.getElementById('localVideo').srcObject;
+
+      // Transfer streams to floating video
+      document.getElementById('floatingRemoteVideo').srcObject = remoteStream;
+      document.getElementById('floatingLocalVideo').srcObject = localStream;
+
+      // Show/hide appropriate elements
+      document.getElementById('callOverlay').classList.remove('active');
+      document.getElementById('floatingVideo').classList.add('active');
+
+      // Sync mute/video states
+      syncFloatingControls();
+    }
+
+    // Maximize from floating back to full screen
+    function maximizeCall() {
+      const remoteStream = document.getElementById('floatingRemoteVideo').srcObject;
+      const localStreamSrc = document.getElementById('floatingLocalVideo').srcObject;
+
+      // Transfer streams back to main video
+      document.getElementById('remoteVideo').srcObject = remoteStream;
+      document.getElementById('localVideo').srcObject = localStreamSrc;
+
+      // Show/hide appropriate elements
+      document.getElementById('floatingVideo').classList.remove('active');
+      document.getElementById('callOverlay').classList.add('active');
+
+      // Update status
+      document.getElementById('callStatus').innerText = 'Connected';
+    }
+
+    // Toggle floating video size
+    function toggleFloatingSize() {
+      document.getElementById('floatingVideo').classList.toggle('expanded');
+    }
+
+    // Sync floating controls with main controls
+    function syncFloatingControls() {
+      document.getElementById('floatingMuteBtn').classList.toggle('active', isMuted);
+      document.getElementById('floatingVideoBtn').classList.toggle('active', isVideoOff);
+    }
+
+    // Override toggleMute to sync both UIs
+    const originalToggleMute = toggleMute;
+    toggleMute = function () {
+      if (localStream) {
+        isMuted = !isMuted;
+        localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
+        document.getElementById('muteBtn').classList.toggle('active', isMuted);
+        document.getElementById('floatingMuteBtn').classList.toggle('active', isMuted);
+      }
+    };
+
+    // Override toggleVideo to sync both UIs
+    const originalToggleVideo = toggleVideo;
+    toggleVideo = function () {
+      if (localStream) {
+        isVideoOff = !isVideoOff;
+        localStream.getVideoTracks().forEach(track => track.enabled = !isVideoOff);
+        document.getElementById('videoBtn').classList.toggle('active', isVideoOff);
+        document.getElementById('floatingVideoBtn').classList.toggle('active', isVideoOff);
+      }
+    };
+
+    // Make floating video draggable
+    (function () {
+      const floatingVideo = document.getElementById('floatingVideo');
+      const dragHandle = document.getElementById('dragHandle');
+      let isDragging = false;
+      let offsetX, offsetY;
+
+      dragHandle.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        offsetX = e.clientX - floatingVideo.getBoundingClientRect().left;
+        offsetY = e.clientY - floatingVideo.getBoundingClientRect().top;
+        floatingVideo.style.transition = 'none';
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const x = e.clientX - offsetX;
+        const y = e.clientY - offsetY;
+        floatingVideo.style.left = x + 'px';
+        floatingVideo.style.top = y + 'px';
+        floatingVideo.style.right = 'auto';
+      });
+
+      document.addEventListener('mouseup', () => {
+        isDragging = false;
+        floatingVideo.style.transition = '';
+      });
+
+      // Touch support for mobile
+      dragHandle.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        isDragging = true;
+        offsetX = touch.clientX - floatingVideo.getBoundingClientRect().left;
+        offsetY = touch.clientY - floatingVideo.getBoundingClientRect().top;
+        floatingVideo.style.transition = 'none';
+      });
+
+      document.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const touch = e.touches[0];
+        const x = touch.clientX - offsetX;
+        const y = touch.clientY - offsetY;
+        floatingVideo.style.left = x + 'px';
+        floatingVideo.style.top = y + 'px';
+        floatingVideo.style.right = 'auto';
+      });
+
+      document.addEventListener('touchend', () => {
+        isDragging = false;
+        floatingVideo.style.transition = '';
+      });
+    })();
 
   </script>
 
