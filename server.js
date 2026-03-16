@@ -20,6 +20,7 @@ const strangerPairs = {}; // Track paired strangers
 const roomOwners = {}; // Track room creators
 const pendingJoinRequests = {}; // Track pending join requests per room
 const messageStatus = {}; // Track message delivery/read status
+const typingState = {}; // Track typing state per user
 
 // Bot configuration
 const botGreetings = [
@@ -234,8 +235,16 @@ io.on("connection", (socket) => {
     const isOwner = roomOwners[roomId] === socket.id;
     const existingMember = roomMembers[roomId]?.find(m => m.id === socket.id);
 
+    // If room has no members yet, this user becomes the owner (handles page navigation after create-room)
+    if (roomMembers[roomId].length === 0) {
+      roomOwners[roomId] = socket.id; // Update owner to current socket
+    }
+
+    // Check if this user should be considered the owner (first person in room)
+    const isEffectiveOwner = roomOwners[roomId] === socket.id;
+
     // If room has owner and this user isn't owner or existing member, send join request
-    if (roomOwners[roomId] && !isOwner && !existingMember && roomMembers[roomId].length > 0) {
+    if (roomOwners[roomId] && !isEffectiveOwner && !existingMember && roomMembers[roomId].length > 0) {
       // Check if room is full
       if (roomMembers[roomId].length >= 2) {
         socket.emit("room-full");
@@ -260,6 +269,34 @@ io.on("connection", (socket) => {
         const ownerSocket = io.sockets.sockets.get(roomOwners[roomId]);
         if (ownerSocket) {
           ownerSocket.emit("join-request", request);
+        } else {
+          // Owner socket not found - they may have disconnected
+          // Allow direct join if owner is offline
+          console.log(`Owner socket not found for room ${roomId}, allowing direct join`);
+          socket.join(roomId);
+
+          const username = users[socket.id] ? users[socket.id].username : `User${Math.floor(Math.random() * 9999)}`;
+          roomMembers[roomId].push({
+            id: socket.id,
+            username: username,
+            isOnline: true
+          });
+
+          if (users[socket.id]) {
+            users[socket.id].currentRoom = roomId;
+          }
+
+          socket.emit("room-joined", roomId);
+
+          if (roomMessages[roomId]) {
+            socket.emit("message-history", roomMessages[roomId]);
+          }
+
+          io.to(roomId).emit("room-members", {
+            members: roomMembers[roomId],
+            ownerId: roomOwners[roomId]
+          });
+          return;
         }
       }
 
@@ -386,18 +423,25 @@ io.on("connection", (socket) => {
   socket.on("chat-message", ({ roomId, message }) => {
     const username = users[socket.id] ? users[socket.id].username : socket.id;
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Check for whisper command
+    const isWhisper = message.startsWith('/whisper ');
+    const actualMessage = isWhisper ? message.substring(9) : message;
+    const messageType = isWhisper ? 'whisper' : 'text';
+
     const msgData = {
       id: messageId,
       sender: socket.id,
       username,
-      message,
+      message: actualMessage,
+      messageType,
       timestamp: Date.now(),
       status: 'sent' // sent -> delivered -> read
     };
 
     // Store message in room history (keep last 100 messages)
     if (!roomMessages[roomId]) roomMessages[roomId] = [];
-    roomMessages[roomId].push({ type: 'text', ...msgData });
+    roomMessages[roomId].push({ type: messageType, ...msgData });
     if (roomMessages[roomId].length > 100) roomMessages[roomId].shift();
 
     // Send to sender with sent status
@@ -525,7 +569,39 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("call-ended");
   });
 
-  // Typing indicator
+  // Live Typing Stream - typing_start, typing_update, typing_stop
+  socket.on("typing_start", ({ roomId }) => {
+    const username = users[socket.id] ? users[socket.id].username : "Stranger";
+    // Track typing state
+    typingState[socket.id] = { roomId, username };
+    socket.to(roomId).emit("typing_start", {
+      userId: socket.id,
+      username
+    });
+  });
+
+  socket.on("typing_update", ({ roomId, text }) => {
+    const username = users[socket.id] ? users[socket.id].username : "Stranger";
+    // Update typing state
+    typingState[socket.id] = { roomId, username, text };
+    socket.to(roomId).emit("typing_update", {
+      userId: socket.id,
+      username,
+      text
+    });
+  });
+
+  socket.on("typing_stop", ({ roomId }) => {
+    const username = users[socket.id] ? users[socket.id].username : "Stranger";
+    // Clear typing state
+    delete typingState[socket.id];
+    socket.to(roomId).emit("typing_stop", {
+      userId: socket.id,
+      username
+    });
+  });
+
+  // Legacy typing indicator (backward compatibility)
   socket.on("typing", ({ roomId, isTyping }) => {
     const username = users[socket.id] ? users[socket.id].username : "Stranger";
     socket.to(roomId).emit("user-typing", {
@@ -535,7 +611,57 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Also handle stranger typing
+  // Also handle stranger typing with live stream
+  socket.on("stranger_typing_start", () => {
+    if (users[socket.id] && strangerPairs[socket.id]) {
+      const { partnerId } = strangerPairs[socket.id];
+      const username = users[socket.id] ? users[socket.id].username : "Stranger";
+      // Track stranger typing state
+      typingState[socket.id] = { partnerId, username, isStranger: true };
+      const partnerSocket = io.sockets.sockets.get(partnerId);
+      if (partnerSocket) {
+        partnerSocket.emit("typing_start", {
+          userId: socket.id,
+          username
+        });
+      }
+    }
+  });
+
+  socket.on("stranger_typing_update", ({ text }) => {
+    if (users[socket.id] && strangerPairs[socket.id]) {
+      const { partnerId } = strangerPairs[socket.id];
+      const username = users[socket.id] ? users[socket.id].username : "Stranger";
+      // Update stranger typing state
+      typingState[socket.id] = { partnerId, username, text, isStranger: true };
+      const partnerSocket = io.sockets.sockets.get(partnerId);
+      if (partnerSocket) {
+        partnerSocket.emit("typing_update", {
+          userId: socket.id,
+          username,
+          text
+        });
+      }
+    }
+  });
+
+  socket.on("stranger_typing_stop", () => {
+    if (users[socket.id] && strangerPairs[socket.id]) {
+      const { partnerId } = strangerPairs[socket.id];
+      const username = users[socket.id] ? users[socket.id].username : "Stranger";
+      // Clear stranger typing state
+      delete typingState[socket.id];
+      const partnerSocket = io.sockets.sockets.get(partnerId);
+      if (partnerSocket) {
+        partnerSocket.emit("typing_stop", {
+          userId: socket.id,
+          username
+        });
+      }
+    }
+  });
+
+  // Legacy stranger typing (backward compatibility)
   socket.on("stranger-typing", ({ isTyping }) => {
     if (users[socket.id] && strangerPairs[socket.id]) {
       const { roomId, partnerId } = strangerPairs[socket.id];
@@ -552,6 +678,16 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
+    // Clear typing state if user was typing
+    if (typingState[socket.id]) {
+      const { roomId, username } = typingState[socket.id];
+      socket.to(roomId).emit("typing_stop", {
+        userId: socket.id,
+        username
+      });
+      delete typingState[socket.id];
+    }
+
     // Remove from waiting list
     const waitIndex = waitingUsers.indexOf(socket.id);
     if (waitIndex > -1) {

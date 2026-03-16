@@ -15,29 +15,48 @@
 
     body {
       height: 100vh;
-      background: #212121;
+      background: linear-gradient(135deg, #0b0b0f 0%, #141420 50%, #0b0b0f 100%);
+      background-size: 200% 200%;
+      animation: breathingBackground 8s ease-in-out infinite alternate;
       display: flex;
       justify-content: center;
+    }
+
+    @keyframes breathingBackground {
+      0% {
+        background-position: 0% 50%;
+      }
+
+      100% {
+        background-position: 100% 50%;
+      }
     }
 
     .app {
       width: 100%;
       max-width: 800px;
       height: 100vh;
-      background: #212121;
+      background: transparent;
       display: flex;
       flex-direction: column;
     }
 
+    /* Whisper Active State - dims chat */
+    .chat-area.whisper-active {
+      opacity: 0.7;
+      transition: opacity 0.3s ease;
+    }
+
     /* ChatGPT-style Header */
     .header {
-      background: #2f2f2f;
+      background: rgba(20, 20, 32, 0.95);
       color: white;
       padding: 12px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid #444;
+      border-bottom: 1px solid rgba(68, 68, 68, 0.5);
+      backdrop-filter: blur(10px);
     }
 
     .header-left {
@@ -125,6 +144,196 @@
 
     .action-btn:hover {
       background: #4a4a4a;
+    }
+
+    /* Settings Modal */
+    .settings-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+    }
+
+    .settings-modal.show {
+      display: flex;
+    }
+
+    .settings-panel {
+      background: #1a1a1a;
+      border-radius: 16px;
+      padding: 24px;
+      width: 90%;
+      max-width: 400px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .settings-title {
+      color: #ececec;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .settings-close {
+      background: none;
+      border: none;
+      color: #8e8e8e;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+
+    .settings-close:hover {
+      color: #ececec;
+    }
+
+    .settings-section {
+      margin-bottom: 20px;
+    }
+
+    .settings-label {
+      color: #8e8e8e;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .color-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding: 10px;
+      background: #2a2a2a;
+      border-radius: 8px;
+    }
+
+    .color-option-label {
+      color: #ececec;
+      font-size: 14px;
+    }
+
+    .color-option input[type="color"] {
+      width: 40px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: none;
+    }
+
+    .color-option input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 2px;
+    }
+
+    .color-option input[type="color"]::-webkit-color-swatch {
+      border-radius: 4px;
+      border: 1px solid #444;
+    }
+
+    .preset-colors {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .preset-color {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .preset-color:hover {
+      transform: scale(1.1);
+    }
+
+    .preset-color.selected {
+      border-color: white;
+    }
+
+    .settings-btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .settings-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .settings-btn.primary {
+      background: #0d7a5f;
+      color: white;
+    }
+
+    .settings-btn.primary:hover {
+      background: #0a5f4a;
+    }
+
+    .settings-btn.secondary {
+      background: #3a3a3a;
+      color: #ececec;
+    }
+
+    .settings-btn.secondary:hover {
+      background: #4a4a4a;
+    }
+
+    .message-preview {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px;
+      background: #0b0b0f;
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+
+    .preview-msg {
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 13px;
+      max-width: 70%;
+    }
+
+    .preview-msg.me {
+      background: var(--my-bubble-color, #0d7a5f);
+      color: var(--my-text-color, #f0f0f0);
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+
+    .preview-msg.other {
+      background: var(--other-bubble-color, #3a3a3a);
+      color: var(--other-text-color, #ececec);
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
     }
 
     /* Members Bar */
@@ -294,19 +503,103 @@
       font-size: 15px;
       line-height: 1.5;
       word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
       position: relative;
     }
 
     .message.me {
-      background: #10a37f;
-      color: white;
+      background: var(--my-bubble-color, #0d7a5f);
+      color: var(--my-text-color, #f0f0f0);
       border-bottom-right-radius: 4px;
     }
 
     .message.other {
-      background: #3a3a3a;
-      color: #ececec;
+      background: var(--other-bubble-color, #3a3a3a);
+      color: var(--other-text-color, #ececec);
       border-bottom-left-radius: 4px;
+    }
+
+    /* Whisper Message Styles */
+    .message.whisper {
+      background: rgba(58, 58, 58, 0.4);
+      color: rgba(236, 236, 236, 0.7);
+      filter: blur(0.3px);
+      font-style: italic;
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      animation: whisperAppear 0.3s ease;
+    }
+
+    .message.whisper.fade-out {
+      animation: whisperFadeOut 2s ease forwards;
+    }
+
+    @keyframes whisperAppear {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes whisperFadeOut {
+      0% {
+        opacity: 1;
+        filter: blur(0.3px);
+      }
+
+      100% {
+        opacity: 0;
+        filter: blur(3px);
+        transform: scale(0.98);
+      }
+    }
+
+    /* Emotional Glow Styles */
+    .message.glow-excited {
+      animation: glowExcited 1.5s ease-out;
+    }
+
+    .message.glow-romantic {
+      animation: glowRomantic 1.5s ease-out;
+    }
+
+    .message.glow-sad {
+      animation: glowSad 1.5s ease-out;
+    }
+
+    @keyframes glowExcited {
+      0% {
+        box-shadow: 0 0 5px rgba(255, 223, 100, 0.5), 0 0 15px rgba(255, 223, 100, 0.3), 0 0 25px rgba(255, 223, 100, 0.2);
+      }
+
+      100% {
+        box-shadow: none;
+      }
+    }
+
+    @keyframes glowRomantic {
+      0% {
+        box-shadow: 0 0 5px rgba(255, 105, 180, 0.5), 0 0 15px rgba(255, 105, 180, 0.3), 0 0 25px rgba(255, 105, 180, 0.2);
+      }
+
+      100% {
+        box-shadow: none;
+      }
+    }
+
+    @keyframes glowSad {
+      0% {
+        box-shadow: 0 0 5px rgba(100, 149, 237, 0.5), 0 0 15px rgba(100, 149, 237, 0.3), 0 0 25px rgba(100, 149, 237, 0.2);
+      }
+
+      100% {
+        box-shadow: none;
+      }
     }
 
     .message img {
@@ -489,21 +782,26 @@
       display: block;
     }
 
-    /* Typing Indicator */
-    .typing-indicator {
+    /* Live Typing Stream Bubble */
+    .typing-stream-container {
       display: none;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 10px;
+      max-width: 70%;
+    }
+
+    .typing-stream-container.show {
+      display: flex;
+    }
+
+    .typing-header {
+      display: flex;
       align-items: center;
       gap: 8px;
       padding: 8px 16px;
       background: #3a3a3a;
-      border-radius: 18px;
-      border-bottom-left-radius: 4px;
-      max-width: fit-content;
-      margin-bottom: 10px;
-    }
-
-    .typing-indicator.show {
-      display: flex;
+      border-radius: 18px 18px 18px 4px;
     }
 
     .typing-text {
@@ -546,15 +844,90 @@
       }
     }
 
+    /* Live Text Preview Bubble */
+    .typing-preview-bubble {
+      display: none;
+      padding: 12px 16px;
+      background: rgba(58, 58, 58, 0.7);
+      border: 1px dashed #555;
+      border-radius: 18px;
+      border-bottom-left-radius: 4px;
+      color: #b0b0b0;
+      font-size: 15px;
+      line-height: 1.5;
+      word-wrap: break-word;
+      animation: fadeIn 0.2s ease;
+      position: relative;
+    }
+
+    .typing-preview-bubble.show {
+      display: block;
+    }
+
+    .typing-preview-bubble::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 2px;
+      background: #10a37f;
+      animation: blink 1s infinite;
+      border-radius: 2px;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes blink {
+
+      0%,
+      50% {
+        opacity: 1;
+      }
+
+      51%,
+      100% {
+        opacity: 0;
+      }
+    }
+
+    /* Legacy typing indicator (fallback) */
+    .typing-indicator {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: #3a3a3a;
+      border-radius: 18px;
+      border-bottom-left-radius: 4px;
+      max-width: fit-content;
+      margin-bottom: 10px;
+    }
+
+    .typing-indicator.show {
+      display: flex;
+    }
+
     /* Input Area - ChatGPT Style */
     .input-container {
       padding: 16px 20px;
-      background: #212121;
+      background: rgba(20, 20, 32, 0.9);
+      backdrop-filter: blur(10px);
     }
 
     .input-area {
-      background: #2f2f2f;
-      border: 1px solid #444;
+      background: rgba(47, 47, 47, 0.8);
+      border: 1px solid rgba(68, 68, 68, 0.5);
       border-radius: 24px;
       padding: 12px 16px;
       display: flex;
@@ -997,7 +1370,7 @@
     /* Responsive */
     @media (max-width: 480px) {
       .message {
-        max-width: 85%;
+        max-width: 100%;
       }
 
       .header {
@@ -1028,6 +1401,7 @@
         </div>
       </div>
       <div class="header-actions">
+        <button class="action-btn" onclick="openSettings()" title="Settings">⚙️</button>
         <button class="action-btn" onclick="startCall(false)">🎤 Voice</button>
         <button class="action-btn" onclick="startCall(true)">📹 Video</button>
       </div>
@@ -1049,6 +1423,17 @@
 
     <!-- Chat Area -->
     <div class="chat-area" id="chat">
+      <!-- Live Typing Stream Container -->
+      <div class="typing-stream-container" id="typingStreamContainer">
+        <div class="typing-header">
+          <div class="typing-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <span class="typing-text" id="typingStreamText">Someone is typing...</span>
+        </div>
+        <div class="typing-preview-bubble" id="typingPreviewBubble"></div>
+      </div>
+      <!-- Legacy typing indicator (fallback) -->
       <div class="typing-indicator" id="typingIndicator">
         <div class="typing-dots">
           <span></span><span></span><span></span>
@@ -1126,6 +1511,72 @@
     </div>
   </div>
 
+  <!-- Settings Modal -->
+  <div class="settings-modal" id="settingsModal" onclick="if(event.target === this) closeSettings()">
+    <div class="settings-panel">
+      <div class="settings-header">
+        <span class="settings-title">⚙️ Chat Settings</span>
+        <button class="settings-close" onclick="closeSettings()">×</button>
+      </div>
+
+      <!-- Preview -->
+      <div class="message-preview">
+        <div class="preview-msg other" id="previewOther">Hey, how are you?</div>
+        <div class="preview-msg me" id="previewMe">I'm doing great!</div>
+      </div>
+
+      <!-- Your Message Colors -->
+      <div class="settings-section">
+        <span class="settings-label">Your Messages</span>
+        <div class="color-option">
+          <span class="color-option-label">Bubble Color</span>
+          <input type="color" id="myBubbleColor" value="#0d7a5f" onchange="updatePreview()">
+        </div>
+        <div class="preset-colors">
+          <div class="preset-color" style="background:#0d7a5f" onclick="selectPreset('myBubble','#0d7a5f')"></div>
+          <div class="preset-color" style="background:#1a5f7a" onclick="selectPreset('myBubble','#1a5f7a')"></div>
+          <div class="preset-color" style="background:#5f1a7a" onclick="selectPreset('myBubble','#5f1a7a')"></div>
+          <div class="preset-color" style="background:#7a1a5f" onclick="selectPreset('myBubble','#7a1a5f')"></div>
+          <div class="preset-color" style="background:#2d5a27" onclick="selectPreset('myBubble','#2d5a27')"></div>
+          <div class="preset-color" style="background:#5a4127" onclick="selectPreset('myBubble','#5a4127')"></div>
+          <div class="preset-color" style="background:#27415a" onclick="selectPreset('myBubble','#27415a')"></div>
+          <div class="preset-color" style="background:#c0392b" onclick="selectPreset('myBubble','#c0392b')"></div>
+        </div>
+        <div class="color-option" style="margin-top:12px">
+          <span class="color-option-label">Text Color</span>
+          <input type="color" id="myTextColor" value="#f0f0f0" onchange="updatePreview()">
+        </div>
+        <div class="preset-colors">
+          <div class="preset-color" style="background:#ffffff" onclick="selectPreset('myText','#ffffff')"></div>
+          <div class="preset-color" style="background:#f0f0f0" onclick="selectPreset('myText','#f0f0f0')"></div>
+          <div class="preset-color" style="background:#ffeaa7" onclick="selectPreset('myText','#ffeaa7')"></div>
+          <div class="preset-color" style="background:#81ecec" onclick="selectPreset('myText','#81ecec')"></div>
+          <div class="preset-color" style="background:#fab1a0" onclick="selectPreset('myText','#fab1a0')"></div>
+          <div class="preset-color" style="background:#a29bfe" onclick="selectPreset('myText','#a29bfe')"></div>
+        </div>
+      </div>
+
+      <!-- Other's Message Colors -->
+      <div class="settings-section">
+        <span class="settings-label">Other's Messages</span>
+        <div class="color-option">
+          <span class="color-option-label">Bubble Color</span>
+          <input type="color" id="otherBubbleColor" value="#3a3a3a" onchange="updatePreview()">
+        </div>
+        <div class="color-option">
+          <span class="color-option-label">Text Color</span>
+          <input type="color" id="otherTextColor" value="#ececec" onchange="updatePreview()">
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="settings-btn-row">
+        <button class="settings-btn secondary" onclick="resetToDefaults()">Reset</button>
+        <button class="settings-btn primary" onclick="applySettingsFromForm()">Apply</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io({
@@ -1142,12 +1593,14 @@
     const connectionText = document.getElementById("connectionText");
     const typingIndicator = document.getElementById("typingIndicator");
     const typingText = document.getElementById("typingText");
+    const typingStreamContainer = document.getElementById("typingStreamContainer");
+    const typingStreamText = document.getElementById("typingStreamText");
+    const typingPreviewBubble = document.getElementById("typingPreviewBubble");
 
     let loadedMessageIds = new Set();
     let messageStatuses = {}; // Track message statuses
     let isOwner = false;
     let ownerId = null;
-    let typingTimeout = null;
     let pendingRequest = false;
 
     document.getElementById("roomCode").innerText = roomId;
@@ -1305,6 +1758,15 @@
       loadedMessageIds.add(msgId);
 
       messageStatuses[data.id] = data.status || 'sent';
+
+      // Clear typing preview if message is from the person who was typing
+      if (data.sender !== socket.id) {
+        typingStreamContainer.classList.remove("show");
+        typingPreviewBubble.classList.remove("show");
+        typingPreviewBubble.innerText = '';
+        typingIndicator.classList.remove("show");
+      }
+
       displayMessage(data);
 
       // Mark as read if from others
@@ -1368,9 +1830,11 @@
       const message = input.value.trim();
       if (!message) return;
 
+      // Clear typing state immediately
+      clearTypingState();
+
       socket.emit("chat-message", { roomId, message });
       input.value = "";
-      socket.emit("typing", { roomId, isTyping: false });
     }
 
     // Quick reaction emojis
@@ -1379,8 +1843,71 @@
     // Store reactions for each message
     const messageReactions = {};
 
+    // Emotion detection for glow effects
+    function detectEmotion(text) {
+      const lowerText = text.toLowerCase();
+
+      // Check for romantic words
+      if (lowerText.includes('love') || lowerText.includes('miss') || lowerText.includes('heart') ||
+        lowerText.includes('❤') || lowerText.includes('💕') || lowerText.includes('💗')) {
+        return 'romantic';
+      }
+
+      // Check for sad words
+      if (lowerText.includes('sad') || lowerText.includes('lonely') || lowerText.includes('tired') ||
+        lowerText.includes('😢') || lowerText.includes('😭') || lowerText.includes('depressed')) {
+        return 'sad';
+      }
+
+      // Check for excited (has ! or uppercase words)
+      const hasExclamation = text.includes('!');
+      const hasUppercase = /[A-Z]{2,}/.test(text);
+      if (hasExclamation || hasUppercase) {
+        return 'excited';
+      }
+
+      return null;
+    }
+
+    // Display whisper message word by word
+    function displayWhisperMessage(data, msgDiv, group) {
+      const words = data.message.split(' ');
+      msgDiv.innerText = '';
+      msgDiv.classList.add('whisper');
+
+      // Dim the chat while whisper is active
+      chat.classList.add('whisper-active');
+
+      let currentIndex = 0;
+
+      const showNextWord = () => {
+        if (currentIndex < words.length) {
+          if (currentIndex > 0) {
+            msgDiv.innerText += ' ';
+          }
+          msgDiv.innerText += words[currentIndex];
+          currentIndex++;
+          scrollToBottom();
+          setTimeout(showNextWord, 350);
+        } else {
+          // All words shown, wait 2 seconds then fade out
+          setTimeout(() => {
+            msgDiv.classList.add('fade-out');
+            chat.classList.remove('whisper-active');
+            // Remove after fade animation
+            setTimeout(() => {
+              group.remove();
+            }, 2000);
+          }, 2000);
+        }
+      };
+
+      showNextWord();
+    }
+
     function displayMessage(data) {
       const isMe = data.sender === socket.id;
+      const isWhisper = data.messageType === 'whisper';
 
       const group = document.createElement("div");
       group.className = `message-group ${isMe ? 'me' : 'other'}`;
@@ -1400,7 +1927,28 @@
 
       const msgDiv = document.createElement("div");
       msgDiv.className = `message ${isMe ? 'me' : 'other'}`;
+
+      // Handle whisper messages
+      if (isWhisper && !isMe) {
+        // Will be filled word by word
+        wrapper.appendChild(msgDiv);
+        group.appendChild(wrapper);
+        chat.insertBefore(group, typingStreamContainer);
+        displayWhisperMessage(data, msgDiv, group);
+        return;
+      }
+
+      // Regular message
       msgDiv.innerText = data.message;
+
+      // Apply emotional glow for non-whisper messages
+      if (!isWhisper) {
+        const emotion = detectEmotion(data.message);
+        if (emotion) {
+          msgDiv.classList.add(`glow-${emotion}`);
+        }
+      }
+
       wrapper.appendChild(msgDiv);
 
       // Reaction trigger button
@@ -1456,8 +2004,8 @@
         group.appendChild(metaDiv);
       }
 
-      // Insert before typing indicator
-      chat.insertBefore(group, typingIndicator);
+      // Insert before typing stream container (which stays at bottom)
+      chat.insertBefore(group, typingStreamContainer);
       scrollToBottom();
     }
 
@@ -1546,24 +2094,40 @@
       });
     });
 
-    // Typing indicator
-    let isTyping = false;
+    // Live Typing Stream Implementation
+    let isTypingStreamActive = false;
+    let typingUpdateThrottleTimer = null;
+    let typingStopDebounceTimer = null;
+    let lastSentText = '';
+    const TYPING_UPDATE_THROTTLE = 300; // Send updates every 300ms
+    const TYPING_STOP_DEBOUNCE = 2000; // Stop typing after 2 seconds of inactivity
 
-    document.getElementById("msg").addEventListener("input", (e) => {
-      if (!isTyping) {
-        isTyping = true;
-        socket.emit("typing", { roomId, isTyping: true });
+    // Throttle function
+    function throttle(func, limit) {
+      let inThrottle;
+      return function (...args) {
+        if (!inThrottle) {
+          func.apply(this, args);
+          inThrottle = true;
+          setTimeout(() => inThrottle = false, limit);
+        }
+      };
+    }
+
+    // Send typing update (throttled)
+    const sendTypingUpdate = throttle((text) => {
+      if (text !== lastSentText) {
+        socket.emit("typing_update", { roomId, text });
+        lastSentText = text;
       }
+    }, TYPING_UPDATE_THROTTLE);
 
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => {
-        isTyping = false;
-        socket.emit("typing", { roomId, isTyping: false });
-      }, 1500);
+    // Handle input events for live typing stream
+    document.getElementById("msg").addEventListener("input", (e) => {
+      const input = e.target;
+      let text = input.value;
 
       // Auto-convert emoji shortcodes
-      const input = e.target;
-      const text = input.value;
       const shortcodePattern = /:[a-zA-Z0-9_+-]+:/g;
       let newText = text;
       let match;
@@ -1577,17 +2141,95 @@
 
       if (newText !== text) {
         input.value = newText;
+        text = newText;
+      }
+
+      // Start typing stream if not active
+      if (!isTypingStreamActive && text.length > 0) {
+        isTypingStreamActive = true;
+        socket.emit("typing_start", { roomId });
+      }
+
+      // Send typing update (throttled)
+      if (text.length > 0) {
+        sendTypingUpdate(text);
+      }
+
+      // Reset stop debounce timer
+      clearTimeout(typingStopDebounceTimer);
+      typingStopDebounceTimer = setTimeout(() => {
+        if (isTypingStreamActive) {
+          isTypingStreamActive = false;
+          lastSentText = '';
+          socket.emit("typing_stop", { roomId });
+        }
+      }, TYPING_STOP_DEBOUNCE);
+
+      // If text is empty, stop immediately
+      if (text.length === 0 && isTypingStreamActive) {
+        isTypingStreamActive = false;
+        lastSentText = '';
+        clearTimeout(typingStopDebounceTimer);
+        socket.emit("typing_stop", { roomId });
       }
     });
 
+    // Clear typing state when sending message
+    function clearTypingState() {
+      if (isTypingStreamActive) {
+        isTypingStreamActive = false;
+        lastSentText = '';
+        clearTimeout(typingStopDebounceTimer);
+        socket.emit("typing_stop", { roomId });
+      }
+    }
+
+    // Handle typing_start event
+    socket.on("typing_start", ({ userId, username }) => {
+      if (userId === socket.id) return;
+
+      typingStreamText.innerText = `${username} is typing...`;
+      typingStreamContainer.classList.add("show");
+      typingPreviewBubble.classList.remove("show");
+      typingPreviewBubble.innerText = '';
+      scrollToBottom();
+    });
+
+    // Handle typing_update event
+    socket.on("typing_update", ({ userId, username, text }) => {
+      if (userId === socket.id) return;
+
+      typingStreamText.innerText = `${username} is typing...`;
+      typingStreamContainer.classList.add("show");
+
+      if (text && text.length > 0) {
+        typingPreviewBubble.innerText = text;
+        typingPreviewBubble.classList.add("show");
+      }
+      scrollToBottom();
+    });
+
+    // Handle typing_stop event
+    socket.on("typing_stop", ({ userId }) => {
+      if (userId === socket.id) return;
+
+      typingStreamContainer.classList.remove("show");
+      typingPreviewBubble.classList.remove("show");
+      typingPreviewBubble.innerText = '';
+    });
+
+    // Legacy typing indicator support
     socket.on("user-typing", ({ userId, username, isTyping: typing }) => {
       if (userId === socket.id) return;
 
-      if (typing) {
-        typingText.innerText = `${username} is typing...`;
-        typingIndicator.classList.add("show");
-      } else {
-        typingIndicator.classList.remove("show");
+      // Only use legacy indicator if stream container is not active
+      if (!typingStreamContainer.classList.contains("show")) {
+        if (typing) {
+          typingText.innerText = `${username} is typing...`;
+          typingIndicator.classList.add("show");
+        } else {
+          typingIndicator.classList.remove("show");
+        }
       }
     });
 
@@ -1695,7 +2337,7 @@
       wrapper.appendChild(reactionsContainer);
 
       group.appendChild(wrapper);
-      chat.insertBefore(group, typingIndicator);
+      chat.insertBefore(group, typingStreamContainer);
       scrollToBottom();
     }
 
@@ -1970,6 +2612,109 @@
       document.getElementById('localVideo').srcObject = null;
       socket.emit('end-call', { roomId });
     }
+
+    // ===== Chat Settings =====
+    const defaultColors = {
+      myBubble: '#0d7a5f',
+      myText: '#f0f0f0',
+      otherBubble: '#3a3a3a',
+      otherText: '#ececec'
+    };
+
+    const bubblePresets = [
+      '#0d7a5f', '#1a5f7a', '#5f1a7a', '#7a1a5f', '#1a7a5f',
+      '#2d5a27', '#5a4127', '#27415a', '#5a2741', '#3d3d3d'
+    ];
+
+    const textPresets = [
+      '#ffffff', '#f0f0f0', '#e0e0e0', '#ffeaa7', '#dfe6e9',
+      '#fab1a0', '#81ecec', '#a29bfe', '#fd79a8', '#00cec9'
+    ];
+
+    function loadChatSettings() {
+      const saved = localStorage.getItem('chatSettings');
+      if (saved) {
+        const settings = JSON.parse(saved);
+        applyColors(settings);
+      }
+    }
+
+    function applyColors(settings) {
+      document.documentElement.style.setProperty('--my-bubble-color', settings.myBubble || defaultColors.myBubble);
+      document.documentElement.style.setProperty('--my-text-color', settings.myText || defaultColors.myText);
+      document.documentElement.style.setProperty('--other-bubble-color', settings.otherBubble || defaultColors.otherBubble);
+      document.documentElement.style.setProperty('--other-text-color', settings.otherText || defaultColors.otherText);
+    }
+
+    function saveChatSettings(settings) {
+      localStorage.setItem('chatSettings', JSON.stringify(settings));
+      applyColors(settings);
+    }
+
+    function getCurrentSettings() {
+      const saved = localStorage.getItem('chatSettings');
+      return saved ? JSON.parse(saved) : { ...defaultColors };
+    }
+
+    function openSettings() {
+      const settings = getCurrentSettings();
+      document.getElementById('myBubbleColor').value = settings.myBubble;
+      document.getElementById('myTextColor').value = settings.myText;
+      document.getElementById('otherBubbleColor').value = settings.otherBubble;
+      document.getElementById('otherTextColor').value = settings.otherText;
+      updatePreview();
+      document.getElementById('settingsModal').classList.add('show');
+    }
+
+    function closeSettings() {
+      document.getElementById('settingsModal').classList.remove('show');
+    }
+
+    function updatePreview() {
+      const myBubble = document.getElementById('myBubbleColor').value;
+      const myText = document.getElementById('myTextColor').value;
+      const otherBubble = document.getElementById('otherBubbleColor').value;
+      const otherText = document.getElementById('otherTextColor').value;
+
+      const previewMe = document.getElementById('previewMe');
+      const previewOther = document.getElementById('previewOther');
+
+      previewMe.style.background = myBubble;
+      previewMe.style.color = myText;
+      previewOther.style.background = otherBubble;
+      previewOther.style.color = otherText;
+    }
+
+    function applySettingsFromForm() {
+      const settings = {
+        myBubble: document.getElementById('myBubbleColor').value,
+        myText: document.getElementById('myTextColor').value,
+        otherBubble: document.getElementById('otherBubbleColor').value,
+        otherText: document.getElementById('otherTextColor').value
+      };
+      saveChatSettings(settings);
+      closeSettings();
+    }
+
+    function resetToDefaults() {
+      document.getElementById('myBubbleColor').value = defaultColors.myBubble;
+      document.getElementById('myTextColor').value = defaultColors.myText;
+      document.getElementById('otherBubbleColor').value = defaultColors.otherBubble;
+      document.getElementById('otherTextColor').value = defaultColors.otherText;
+      updatePreview();
+    }
+
+    function selectPreset(type, color) {
+      if (type === 'myBubble') {
+        document.getElementById('myBubbleColor').value = color;
+      } else if (type === 'myText') {
+        document.getElementById('myTextColor').value = color;
+      }
+      updatePreview();
+    }
+
+    // Load settings on page load
+    loadChatSettings();
   </script>
 
 </body>
