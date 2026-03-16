@@ -17,6 +17,9 @@ const roomMessages = {}; // Store messages per room
 const users = {}; // Store connected users
 const waitingUsers = []; // Queue for stranger matching
 const strangerPairs = {}; // Track paired strangers
+const roomOwners = {}; // Track room creators
+const pendingJoinRequests = {}; // Track pending join requests per room
+const messageStatus = {}; // Track message delivery/read status
 
 // Bot configuration
 const botGreetings = [
@@ -212,27 +215,59 @@ io.on("connection", (socket) => {
   socket.on("create-room", () => {
     const roomId = uuidv4().slice(0, 6);
     rooms[roomId] = true;
+    roomOwners[roomId] = socket.id; // Track room owner
+    roomMembers[roomId] = [];
+    pendingJoinRequests[roomId] = [];
     socket.join(roomId);
     socket.emit("room-created", roomId);
   });
 
   socket.on("join-room", (roomId) => {
-    // If room doesn't exist → create it automatically
+    // If room doesn't exist → create it automatically (first person becomes owner)
     if (!rooms[roomId]) {
       rooms[roomId] = true;
+      roomOwners[roomId] = socket.id;
       roomMembers[roomId] = [];
+      pendingJoinRequests[roomId] = [];
     }
 
-    // Check if room is full (max 2 members)
-    if (roomMembers[roomId] && roomMembers[roomId].length >= 2) {
-      // Check if this user is already in the room (reconnection)
-      const existingMember = roomMembers[roomId].find(m => m.id === socket.id);
-      if (!existingMember) {
+    const isOwner = roomOwners[roomId] === socket.id;
+    const existingMember = roomMembers[roomId]?.find(m => m.id === socket.id);
+
+    // If room has owner and this user isn't owner or existing member, send join request
+    if (roomOwners[roomId] && !isOwner && !existingMember && roomMembers[roomId].length > 0) {
+      // Check if room is full
+      if (roomMembers[roomId].length >= 2) {
         socket.emit("room-full");
         return;
       }
+
+      // Send join request to owner
+      const username = users[socket.id] ? users[socket.id].username : `User${Math.floor(Math.random() * 9999)}`;
+      const request = {
+        id: socket.id,
+        username: username,
+        timestamp: Date.now()
+      };
+
+      if (!pendingJoinRequests[roomId]) pendingJoinRequests[roomId] = [];
+
+      // Don't add duplicate requests
+      if (!pendingJoinRequests[roomId].find(r => r.id === socket.id)) {
+        pendingJoinRequests[roomId].push(request);
+
+        // Notify owner
+        const ownerSocket = io.sockets.sockets.get(roomOwners[roomId]);
+        if (ownerSocket) {
+          ownerSocket.emit("join-request", request);
+        }
+      }
+
+      socket.emit("join-request-sent", { roomId });
+      return;
     }
 
+    // Allow direct join for owner or first member
     socket.join(roomId);
 
     // Add user to room members if not already there
@@ -262,18 +297,102 @@ io.on("connection", (socket) => {
     }
 
     // Emit room members to all users in the room
-    io.to(roomId).emit("room-members", roomMembers[roomId]);
+    io.to(roomId).emit("room-members", {
+      members: roomMembers[roomId],
+      ownerId: roomOwners[roomId]
+    });
 
     socket.to(roomId).emit("user-joined", socket.id);
   });
 
+  // Handle join request approval
+  socket.on("approve-join-request", ({ roomId, userId }) => {
+    if (roomOwners[roomId] !== socket.id) return; // Only owner can approve
+
+    const userSocket = io.sockets.sockets.get(userId);
+    if (!userSocket) return;
+
+    // Remove from pending
+    if (pendingJoinRequests[roomId]) {
+      pendingJoinRequests[roomId] = pendingJoinRequests[roomId].filter(r => r.id !== userId);
+    }
+
+    // Add user to room
+    userSocket.join(roomId);
+    const username = users[userId] ? users[userId].username : `User${Math.floor(Math.random() * 9999)}`;
+
+    if (!roomMembers[roomId]) roomMembers[roomId] = [];
+    roomMembers[roomId].push({
+      id: userId,
+      username: username,
+      isOnline: true
+    });
+
+    if (users[userId]) {
+      users[userId].currentRoom = roomId;
+    }
+
+    userSocket.emit("room-joined", roomId);
+
+    // Send message history
+    if (roomMessages[roomId]) {
+      userSocket.emit("message-history", roomMessages[roomId]);
+    }
+
+    // Update all members
+    io.to(roomId).emit("room-members", {
+      members: roomMembers[roomId],
+      ownerId: roomOwners[roomId]
+    });
+  });
+
+  // Handle join request rejection
+  socket.on("reject-join-request", ({ roomId, userId }) => {
+    if (roomOwners[roomId] !== socket.id) return;
+
+    if (pendingJoinRequests[roomId]) {
+      pendingJoinRequests[roomId] = pendingJoinRequests[roomId].filter(r => r.id !== userId);
+    }
+
+    const userSocket = io.sockets.sockets.get(userId);
+    if (userSocket) {
+      userSocket.emit("join-rejected", { roomId });
+    }
+  });
+
+  // Handle kick user
+  socket.on("kick-user", ({ roomId, userId }) => {
+    if (roomOwners[roomId] !== socket.id) return;
+
+    const userSocket = io.sockets.sockets.get(userId);
+    if (userSocket) {
+      userSocket.leave(roomId);
+      userSocket.emit("kicked-from-room", { roomId });
+    }
+
+    if (roomMembers[roomId]) {
+      roomMembers[roomId] = roomMembers[roomId].filter(m => m.id !== userId);
+      io.to(roomId).emit("room-members", {
+        members: roomMembers[roomId],
+        ownerId: roomOwners[roomId]
+      });
+    }
+
+    if (users[userId]) {
+      users[userId].currentRoom = null;
+    }
+  });
+
   socket.on("chat-message", ({ roomId, message }) => {
     const username = users[socket.id] ? users[socket.id].username : socket.id;
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const msgData = {
+      id: messageId,
       sender: socket.id,
       username,
       message,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      status: 'sent' // sent -> delivered -> read
     };
 
     // Store message in room history (keep last 100 messages)
@@ -281,7 +400,78 @@ io.on("connection", (socket) => {
     roomMessages[roomId].push({ type: 'text', ...msgData });
     if (roomMessages[roomId].length > 100) roomMessages[roomId].shift();
 
-    io.to(roomId).emit("chat-message", msgData);
+    // Send to sender with sent status
+    socket.emit("chat-message", { ...msgData, status: 'sent' });
+
+    // Send to others with delivered status
+    socket.to(roomId).emit("chat-message", { ...msgData, status: 'delivered' });
+
+    // Notify sender of delivery
+    socket.emit("message-delivered", { messageId });
+  });
+
+  // Message read receipts
+  socket.on("message-read", ({ roomId, messageIds }) => {
+    // Notify all senders that their messages were read
+    if (roomMessages[roomId]) {
+      roomMessages[roomId].forEach(msg => {
+        if (messageIds.includes(msg.id) && msg.sender !== socket.id) {
+          const senderSocket = io.sockets.sockets.get(msg.sender);
+          if (senderSocket) {
+            senderSocket.emit("message-read-receipt", { messageId: msg.id });
+          }
+          msg.status = 'read';
+        }
+      });
+    }
+  });
+
+  // Message reactions
+  socket.on("add-reaction", ({ roomId, messageId, emoji }) => {
+    const username = users[socket.id] ? users[socket.id].username : socket.id;
+
+    // Find and update message in history
+    if (roomMessages[roomId]) {
+      const msg = roomMessages[roomId].find(m => m.id === messageId);
+      if (msg) {
+        if (!msg.reactions) msg.reactions = {};
+        if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+
+        // Check if user already reacted with this emoji
+        const existingIndex = msg.reactions[emoji].findIndex(r => r.userId === socket.id);
+        if (existingIndex === -1) {
+          msg.reactions[emoji].push({ userId: socket.id, username });
+        }
+      }
+    }
+
+    // Broadcast reaction to all users in room
+    io.to(roomId).emit("reaction-added", {
+      messageId,
+      emoji,
+      userId: socket.id,
+      username
+    });
+  });
+
+  socket.on("remove-reaction", ({ roomId, messageId, emoji }) => {
+    // Find and update message in history
+    if (roomMessages[roomId]) {
+      const msg = roomMessages[roomId].find(m => m.id === messageId);
+      if (msg && msg.reactions && msg.reactions[emoji]) {
+        msg.reactions[emoji] = msg.reactions[emoji].filter(r => r.userId !== socket.id);
+        if (msg.reactions[emoji].length === 0) {
+          delete msg.reactions[emoji];
+        }
+      }
+    }
+
+    // Broadcast removal to all users in room
+    io.to(roomId).emit("reaction-removed", {
+      messageId,
+      emoji,
+      userId: socket.id
+    });
   });
 
   socket.on("remove-image", (imageId) => {
@@ -338,7 +528,27 @@ io.on("connection", (socket) => {
   // Typing indicator
   socket.on("typing", ({ roomId, isTyping }) => {
     const username = users[socket.id] ? users[socket.id].username : "Stranger";
-    socket.to(roomId).emit("stranger-typing", { isTyping, username });
+    socket.to(roomId).emit("user-typing", {
+      userId: socket.id,
+      username,
+      isTyping
+    });
+  });
+
+  // Also handle stranger typing
+  socket.on("stranger-typing", ({ isTyping }) => {
+    if (users[socket.id] && strangerPairs[socket.id]) {
+      const { roomId, partnerId } = strangerPairs[socket.id];
+      const username = users[socket.id] ? users[socket.id].username : "Stranger";
+      const partnerSocket = io.sockets.sockets.get(partnerId);
+      if (partnerSocket) {
+        partnerSocket.emit("user-typing", {
+          userId: socket.id,
+          username,
+          isTyping
+        });
+      }
+    }
   });
 
   socket.on("disconnect", () => {
@@ -380,7 +590,17 @@ io.on("connection", (socket) => {
         if (memberIndex !== -1) {
           roomMembers[roomId][memberIndex].isOnline = false;
           // Emit updated room members to remaining users
-          io.to(roomId).emit("room-members", roomMembers[roomId]);
+          io.to(roomId).emit("room-members", {
+            members: roomMembers[roomId],
+            ownerId: roomOwners[roomId]
+          });
+        }
+      }
+
+      // Clean up pending join requests for this user
+      for (const rid in pendingJoinRequests) {
+        if (pendingJoinRequests[rid]) {
+          pendingJoinRequests[rid] = pendingJoinRequests[rid].filter(r => r.id !== socket.id);
         }
       }
     }
@@ -390,6 +610,6 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(3000, () => {
+server.listen(3001, () => {
   console.log("Server running on http://localhost:3000");
 });
