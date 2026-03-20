@@ -1609,7 +1609,20 @@
     socket.on("connect", () => {
       connectionDot.classList.remove("disconnected");
       connectionText.innerText = "Connected";
-      socket.emit("join-room", roomId);
+      // Require username from localStorage or prompt
+      let username = localStorage.getItem('chatUsername');
+      if (!username) {
+        username = prompt("Enter your username (required):");
+        if (!username || !username.trim()) {
+          alert("Username is required to join the room.");
+          window.location.href = "/";
+          return;
+        }
+        username = username.trim();
+        localStorage.setItem('chatUsername', username);
+      }
+      socket.emit('set-username', username);
+      socket.emit("join-room", { roomId, username });
     });
 
     socket.on("disconnect", () => {
@@ -1825,10 +1838,32 @@
     }
 
     // Send message
+    function extractYouTubeId(url) {
+      // Regex for various YouTube URL formats
+      const regex = /(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]{11})/;
+      const match = url.match(regex);
+      return match ? match[1] : null;
+    }
+
     function sendMessage() {
       const input = document.getElementById("msg");
       const message = input.value.trim();
       if (!message) return;
+
+      // YouTube link detection
+      const videoId = extractYouTubeId(message);
+      if (videoId) {
+        // Start video session as host
+        const startTimestamp = Date.now();
+        socket.emit("video:start", {
+          roomId,
+          videoId,
+          startTimestamp,
+          userId: localStorage.getItem('chatUsername') || socket.id
+        });
+        input.value = "";
+        return;
+      }
 
       // Clear typing state immediately
       clearTypingState();
@@ -2712,6 +2747,220 @@
       }
       updatePreview();
     }
+
+
+    // --- Synchronized YouTube Video Playback ---
+    let ytPlayer = null;
+    let ytHost = null;
+    let ytVideoId = null;
+    let ytSyncInterval = null;
+    let ytMinimized = false;
+    let ytDragging = false, ytOffsetX = 0, ytOffsetY = 0;
+
+    // Floating player container
+    const ytContainer = document.createElement('div');
+    ytContainer.id = 'yt-float-player';
+    ytContainer.style = `
+      position: fixed; bottom: 24px; right: 24px; width: 400px; height: 225px; z-index: 3000;
+      background: #181818; border-radius: 16px; box-shadow: 0 4px 32px #000a;
+      display: none; flex-direction: column; overflow: hidden;
+    `;
+    ytContainer.innerHTML = `
+      <div id="yt-float-header" style="cursor:move; background:#222; color:#fff; padding:8px 12px; display:flex; align-items:center; justify-content:space-between;">
+        <span>▶️ YouTube Video</span>
+        <div>
+          <button id="yt-min-btn" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">_</button>
+          <button id="yt-close-btn" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">×</button>
+        </div>
+      </div>
+      <div id="yt-player-area" style="flex:1;position:relative;"></div>
+      <div id="yt-controls" style="background:#222;padding:8px 12px;display:flex;align-items:center;gap:12px;">
+        <button id="yt-play-btn">⏯️</button>
+        <input id="yt-seek" type="range" min="0" max="100" value="0" style="flex:1;">
+        <span id="yt-time">0:00 / 0:00</span>
+        <input id="yt-vol" type="range" min="0" max="100" value="100" style="width:80px;">
+      </div>
+    `;
+    document.body.appendChild(ytContainer);
+
+    // Drag logic
+    ytContainer.querySelector('#yt-float-header').addEventListener('mousedown', e => {
+      ytDragging = true;
+      ytOffsetX = e.clientX - ytContainer.offsetLeft;
+      ytOffsetY = e.clientY - ytContainer.offsetTop;
+      document.body.style.userSelect = 'none';
+    });
+    document.addEventListener('mousemove', e => {
+      if (ytDragging) {
+        ytContainer.style.left = (e.clientX - ytOffsetX) + 'px';
+        ytContainer.style.top = (e.clientY - ytOffsetY) + 'px';
+        ytContainer.style.right = '';
+        ytContainer.style.bottom = '';
+      }
+    });
+    document.addEventListener('mouseup', () => {
+      ytDragging = false;
+      document.body.style.userSelect = '';
+    });
+
+    // Minimize/expand
+    ytContainer.querySelector('#yt-min-btn').onclick = () => {
+      ytMinimized = !ytMinimized;
+      ytContainer.style.height = ytMinimized ? '40px' : '225px';
+      ytContainer.querySelector('#yt-player-area').style.display = ytMinimized ? 'none' : 'block';
+      ytContainer.querySelector('#yt-controls').style.display = ytMinimized ? 'none' : 'flex';
+    };
+    // Close
+    ytContainer.querySelector('#yt-close-btn').onclick = stopYouTubePlayer;
+
+    // Load YouTube API
+    function loadYouTubeAPI(cb) {
+      if (window.YT && window.YT.Player) return cb();
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      window.onYouTubeIframeAPIReady = cb;
+      document.body.appendChild(tag);
+    }
+
+    // Start player
+    function startYouTubePlayer(videoId, startTime, host) {
+      stopYouTubePlayer();
+      ytVideoId = videoId;
+      ytHost = host;
+      ytContainer.style.display = 'flex';
+      ytContainer.style.height = '225px';
+      ytMinimized = false;
+      loadYouTubeAPI(() => {
+        ytPlayer = new YT.Player('yt-player-area', {
+          height: '100%', width: '100%',
+          videoId,
+          playerVars: { autoplay: 1, controls: 0, rel: 0, modestbranding: 1, start: Math.floor((Date.now() - startTime) / 1000) },
+          events: {
+            onReady: onYTReady,
+            onStateChange: onYTStateChange
+          }
+        });
+      });
+      // Host: start sync interval
+      if (isYouTubeHost()) {
+        ytSyncInterval = setInterval(() => {
+          if (ytPlayer && ytPlayer.getCurrentTime) {
+            socket.emit('video:sync', {
+              roomId,
+              userId: ytHost,
+              currentTime: ytPlayer.getCurrentTime()
+            });
+          }
+        }, 3000);
+      }
+    }
+
+    function stopYouTubePlayer() {
+      ytContainer.style.display = 'none';
+      ytContainer.style.height = '225px';
+      ytMinimized = false;
+      if (ytPlayer && ytPlayer.destroy) ytPlayer.destroy();
+      ytPlayer = null;
+      ytVideoId = null;
+      ytHost = null;
+      if (ytSyncInterval) clearInterval(ytSyncInterval);
+      ytSyncInterval = null;
+    }
+
+    function isYouTubeHost() {
+      return (localStorage.getItem('chatUsername') || socket.id) === ytHost;
+    }
+
+    // Player controls
+    function onYTReady() {
+      updateYTControls();
+      ytContainer.querySelector('#yt-play-btn').onclick = () => {
+        if (!ytPlayer) return;
+        if (!isYouTubeHost()) return;
+        const state = ytPlayer.getPlayerState();
+        if (state === YT.PlayerState.PLAYING) {
+          ytPlayer.pauseVideo();
+          socket.emit('video:pause', { roomId, userId: ytHost, currentTime: ytPlayer.getCurrentTime() });
+        } else {
+          ytPlayer.playVideo();
+          socket.emit('video:play', { roomId, userId: ytHost, currentTime: ytPlayer.getCurrentTime() });
+        }
+      };
+      ytContainer.querySelector('#yt-seek').oninput = e => {
+        if (!ytPlayer) return;
+        if (!isYouTubeHost()) return;
+        const duration = ytPlayer.getDuration();
+        const seekTo = (e.target.value / 100) * duration;
+        ytPlayer.seekTo(seekTo, true);
+        socket.emit('video:seek', { roomId, userId: ytHost, currentTime: seekTo });
+      };
+      ytContainer.querySelector('#yt-vol').oninput = e => {
+        if (!ytPlayer) return;
+        ytPlayer.setVolume(Number(e.target.value));
+        // Optionally sync volume
+        // if (isYouTubeHost()) socket.emit('video:volume', { roomId, userId: ytHost, volume: Number(e.target.value) });
+      };
+      updateYTControls();
+    }
+
+    function onYTStateChange(e) {
+      updateYTControls();
+    }
+
+    function updateYTControls() {
+      if (!ytPlayer) return;
+      const duration = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
+      const current = ytPlayer.getCurrentTime ? ytPlayer.getCurrentTime() : 0;
+      ytContainer.querySelector('#yt-seek').value = duration ? (current / duration) * 100 : 0;
+      ytContainer.querySelector('#yt-time').innerText = `${formatTime(current)} / ${formatTime(duration)}`;
+      ytContainer.querySelector('#yt-vol').value = ytPlayer.getVolume ? ytPlayer.getVolume() : 100;
+      // Only host can use controls
+      ytContainer.querySelectorAll('#yt-play-btn,#yt-seek').forEach(el => el.disabled = !isYouTubeHost());
+    }
+
+    function formatTime(sec) {
+      sec = Math.floor(sec);
+      return `${Math.floor(sec/60)}:${('0'+(sec%60)).slice(-2)}`;
+    }
+
+    // Update controls every 500ms
+    setInterval(() => {
+      if (ytPlayer && ytPlayer.getCurrentTime) updateYTControls();
+    }, 500);
+
+    // --- Socket.IO video events ---
+    socket.on('video:start', ({ videoId, startTimestamp, userId }) => {
+      startYouTubePlayer(videoId, startTimestamp, userId);
+    });
+    socket.on('video:stop', stopYouTubePlayer);
+    socket.on('video:play', ({ currentTime }) => {
+      if (ytPlayer && !isYouTubeHost()) {
+        ytPlayer.seekTo(currentTime, true);
+        ytPlayer.playVideo();
+      }
+    });
+    socket.on('video:pause', ({ currentTime }) => {
+      if (ytPlayer && !isYouTubeHost()) {
+        ytPlayer.seekTo(currentTime, true);
+        ytPlayer.pauseVideo();
+      }
+    });
+    socket.on('video:seek', ({ currentTime }) => {
+      if (ytPlayer && !isYouTubeHost()) {
+        ytPlayer.seekTo(currentTime, true);
+      }
+    });
+    socket.on('video:sync', ({ currentTime }) => {
+      if (ytPlayer && !isYouTubeHost()) {
+        const drift = Math.abs(ytPlayer.getCurrentTime() - currentTime);
+        if (drift > 1) ytPlayer.seekTo(currentTime, true);
+      }
+    });
+    // Optionally sync volume
+    // socket.on('video:volume', ({ volume }) => { if (ytPlayer) ytPlayer.setVolume(volume); });
+
+    // Cleanup on leave
+    window.addEventListener('beforeunload', stopYouTubePlayer);
 
     // Load settings on page load
     loadChatSettings();

@@ -1,3 +1,6 @@
+// --- Synchronized YouTube Video Playback ---
+// Track current video session per room
+const roomVideoSession = {};
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -101,6 +104,52 @@ function createBot(realUserId, realUserSocket) {
 }
 
 io.on("connection", (socket) => {
+    // --- Synchronized YouTube Video Playback ---
+    // Start video session
+    socket.on("video:start", ({ roomId, videoId, startTimestamp, userId }) => {
+      // Only allow one video session at a time per room
+      roomVideoSession[roomId] = {
+        videoId,
+        host: userId,
+        startTimestamp,
+        lastSync: Date.now(),
+        lastTime: 0
+      };
+      io.to(roomId).emit("video:start", {
+        videoId,
+        startTimestamp,
+        userId
+      });
+    });
+
+    // Video control events: play, pause, seek, sync
+    ["video:play", "video:pause", "video:seek", "video:sync", "video:volume"].forEach(event => {
+      socket.on(event, ({ roomId, userId, ...rest }) => {
+        const session = roomVideoSession[roomId];
+        if (!session) return;
+        // Only host can send control events
+        if (session.host !== userId) return;
+        // Broadcast to all in room except sender
+        socket.to(roomId).emit(event, { userId, ...rest });
+        // Track last sync time for drift correction
+        if (event === "video:sync") {
+          session.lastSync = Date.now();
+          session.lastTime = rest.currentTime;
+        }
+      });
+    });
+
+    // Cleanup on disconnect or leave
+    socket.on("disconnecting", () => {
+      // Remove video session if host leaves
+      Object.keys(socket.rooms).forEach(roomId => {
+        const session = roomVideoSession[roomId];
+        if (session && session.host === (users[socket.id]?.username || socket.id)) {
+          delete roomVideoSession[roomId];
+          io.to(roomId).emit("video:stop");
+        }
+      });
+    });
   // Initialize user
   users[socket.id] = {
     id: socket.id,
@@ -223,25 +272,36 @@ io.on("connection", (socket) => {
     socket.emit("room-created", roomId);
   });
 
-  socket.on("join-room", (roomId) => {
+  socket.on("join-room", (data) => {
+    // Accepts: { roomId, username }
+    const roomId = typeof data === 'string' ? data : data.roomId;
+    let username = typeof data === 'string' ? (users[socket.id]?.username || `User${Math.floor(Math.random() * 9999)}`) : (data.username || users[socket.id]?.username || `User${Math.floor(Math.random() * 9999)}`);
+    username = username.trim();
+    if (!username) {
+      socket.emit("error", "Username required");
+      return;
+    }
+    // Save username to user object
+    if (users[socket.id]) users[socket.id].username = username;
+
     // If room doesn't exist → create it automatically (first person becomes owner)
     if (!rooms[roomId]) {
       rooms[roomId] = true;
-      roomOwners[roomId] = socket.id;
+      roomOwners[roomId] = username;
       roomMembers[roomId] = [];
       pendingJoinRequests[roomId] = [];
     }
 
-    const isOwner = roomOwners[roomId] === socket.id;
-    const existingMember = roomMembers[roomId]?.find(m => m.id === socket.id);
+    const isOwner = roomOwners[roomId] === username;
+    const existingMember = roomMembers[roomId]?.find(m => m.id === username);
 
     // If room has no members yet, this user becomes the owner (handles page navigation after create-room)
     if (roomMembers[roomId].length === 0) {
-      roomOwners[roomId] = socket.id; // Update owner to current socket
+      roomOwners[roomId] = username; // Update owner to current username
     }
 
     // Check if this user should be considered the owner (first person in room)
-    const isEffectiveOwner = roomOwners[roomId] === socket.id;
+    const isEffectiveOwner = roomOwners[roomId] === username;
 
     // If room has owner and this user isn't owner or existing member, send join request
     if (roomOwners[roomId] && !isEffectiveOwner && !existingMember && roomMembers[roomId].length > 0) {
@@ -252,9 +312,8 @@ io.on("connection", (socket) => {
       }
 
       // Send join request to owner
-      const username = users[socket.id] ? users[socket.id].username : `User${Math.floor(Math.random() * 9999)}`;
       const request = {
-        id: socket.id,
+        id: username,
         username: username,
         timestamp: Date.now()
       };
@@ -262,11 +321,13 @@ io.on("connection", (socket) => {
       if (!pendingJoinRequests[roomId]) pendingJoinRequests[roomId] = [];
 
       // Don't add duplicate requests
-      if (!pendingJoinRequests[roomId].find(r => r.id === socket.id)) {
+      if (!pendingJoinRequests[roomId].find(r => r.id === username)) {
         pendingJoinRequests[roomId].push(request);
 
         // Notify owner
-        const ownerSocket = io.sockets.sockets.get(roomOwners[roomId]);
+        // Find owner's socket by username
+        const ownerSocketId = Object.keys(users).find(sid => users[sid]?.username === roomOwners[roomId]);
+        const ownerSocket = io.sockets.sockets.get(ownerSocketId);
         if (ownerSocket) {
           ownerSocket.emit("join-request", request);
         } else {
@@ -275,9 +336,8 @@ io.on("connection", (socket) => {
           console.log(`Owner socket not found for room ${roomId}, allowing direct join`);
           socket.join(roomId);
 
-          const username = users[socket.id] ? users[socket.id].username : `User${Math.floor(Math.random() * 9999)}`;
           roomMembers[roomId].push({
-            id: socket.id,
+            id: username,
             username: username,
             isOnline: true
           });
@@ -308,12 +368,11 @@ io.on("connection", (socket) => {
     socket.join(roomId);
 
     // Add user to room members if not already there
-    const username = users[socket.id] ? users[socket.id].username : `User${Math.floor(Math.random() * 9999)}`;
-    const existingMemberIndex = roomMembers[roomId].findIndex(m => m.id === socket.id);
+    const existingMemberIndex = roomMembers[roomId].findIndex(m => m.id === username);
 
     if (existingMemberIndex === -1) {
       roomMembers[roomId].push({
-        id: socket.id,
+        id: username,
         username: username,
         isOnline: true
       });
@@ -339,14 +398,16 @@ io.on("connection", (socket) => {
       ownerId: roomOwners[roomId]
     });
 
-    socket.to(roomId).emit("user-joined", socket.id);
+    socket.to(roomId).emit("user-joined", username);
   });
 
   // Handle join request approval
   socket.on("approve-join-request", ({ roomId, userId }) => {
-    if (roomOwners[roomId] !== socket.id) return; // Only owner can approve
-
-    const userSocket = io.sockets.sockets.get(userId);
+    // userId is now the username, not socket id
+    // Find the socket id for this username
+    const targetSocketId = Object.keys(users).find(sid => users[sid]?.username === userId);
+    if (!targetSocketId) return;
+    const userSocket = io.sockets.sockets.get(targetSocketId);
     if (!userSocket) return;
 
     // Remove from pending
@@ -356,7 +417,7 @@ io.on("connection", (socket) => {
 
     // Add user to room
     userSocket.join(roomId);
-    const username = users[userId] ? users[userId].username : `User${Math.floor(Math.random() * 9999)}`;
+    const username = users[targetSocketId] ? users[targetSocketId].username : `User${Math.floor(Math.random() * 9999)}`;
 
     if (!roomMembers[roomId]) roomMembers[roomId] = [];
     roomMembers[roomId].push({
@@ -365,8 +426,8 @@ io.on("connection", (socket) => {
       isOnline: true
     });
 
-    if (users[userId]) {
-      users[userId].currentRoom = roomId;
+    if (users[targetSocketId]) {
+      users[targetSocketId].currentRoom = roomId;
     }
 
     userSocket.emit("room-joined", roomId);
