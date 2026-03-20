@@ -1494,15 +1494,6 @@
         <button class="control-btn mute active" id="muteBtn" onclick="toggleMute()">🎤</button>
         <button class="control-btn video-toggle" id="videoBtn" onclick="toggleVideo()">📹</button>
         <button class="control-btn end-call" onclick="endCall()">📞</button>
-        <button class="control-btn" id="minimizeCallBtn" title="Minimize Call" style="background:#3a3a3a;color:white;font-size:20px;">🗕</button>
-      </div>
-    </div>
-
-    <!-- Mini Video PiP -->
-    <div id="miniCall" style="display:none;position:fixed;top:16px;right:16px;width:120px;height:160px;z-index:1200;background:#111;border-radius:12px;box-shadow:0 2px 12px #0008;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;cursor:pointer;">
-      <video id="miniRemoteVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video>
-      <div style="position:absolute;top:4px;right:4px;z-index:2;">
-        <button onclick="restoreCallOverlay(event)" style="background:#222;color:#fff;border:none;border-radius:6px;padding:2px 6px;font-size:14px;cursor:pointer;">🔼</button>
       </div>
     </div>
   </div>
@@ -2619,33 +2610,7 @@
       document.getElementById('callOverlay').classList.remove('active');
       document.getElementById('remoteVideo').srcObject = null;
       document.getElementById('localVideo').srcObject = null;
-      document.getElementById('miniCall').style.display = 'none';
-      document.getElementById('miniRemoteVideo').srcObject = null;
       socket.emit('end-call', { roomId });
-    }
-
-    // Minimize/Restore Call Overlay
-    document.getElementById('minimizeCallBtn').onclick = function() {
-      // Hide overlay, show mini PiP
-      document.getElementById('callOverlay').classList.remove('active');
-      const remoteVideo = document.getElementById('remoteVideo');
-      const miniRemoteVideo = document.getElementById('miniRemoteVideo');
-      if (remoteVideo.srcObject) {
-        miniRemoteVideo.srcObject = remoteVideo.srcObject;
-      }
-      document.getElementById('miniCall').style.display = 'flex';
-    };
-
-    function restoreCallOverlay(e) {
-      e.stopPropagation();
-      document.getElementById('miniCall').style.display = 'none';
-      document.getElementById('callOverlay').classList.add('active');
-      // Sync video back
-      const miniRemoteVideo = document.getElementById('miniRemoteVideo');
-      const remoteVideo = document.getElementById('remoteVideo');
-      if (miniRemoteVideo.srcObject) {
-        remoteVideo.srcObject = miniRemoteVideo.srcObject;
-      }
     }
 
     // ===== Chat Settings =====
