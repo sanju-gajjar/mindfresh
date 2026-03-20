@@ -1871,6 +1871,7 @@
       socket.emit("chat-message", { roomId, message });
       input.value = "";
     }
+    window.sendMessage = sendMessage;
 
     // Quick reaction emojis
     const quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
@@ -1941,6 +1942,7 @@
     }
 
     function displayMessage(data) {
+      console.log('[displayMessage] called with:', data);
       const isMe = data.sender === socket.id;
       const isWhisper = data.messageType === 'whisper';
 
@@ -1969,6 +1971,7 @@
         wrapper.appendChild(msgDiv);
         group.appendChild(wrapper);
         chat.insertBefore(group, typingStreamContainer);
+        console.log('[displayMessage] Whisper group appended:', group, 'to chat:', chat);
         displayWhisperMessage(data, msgDiv, group);
         return;
       }
@@ -2012,119 +2015,9 @@
       });
       wrapper.appendChild(reactionPicker);
 
-
-      // Floating player container with improved mobile/resizing/drag
-      const ytContainer = document.createElement('div');
-      ytContainer.id = 'yt-float-player';
-      ytContainer.style = `
-        position: fixed; left: unset; top: unset; right: 16px; bottom: 80px; width: 320px; height: 180px; z-index: 3000;
-        background: #181818; border-radius: 16px; box-shadow: 0 4px 32px #000a;
-        display: none; flex-direction: column; overflow: hidden;
-        touch-action: none;
-        transition: width 0.2s, height 0.2s;
-      `;
-      ytContainer.innerHTML = `
-        <div id="yt-float-header" style="cursor:grab; background:#222; color:#fff; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; user-select:none;">
-          <span>▶️ YouTube Video</span>
-          <div>
-            <button id="yt-size-btn" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">🔳</button>
-            <button id="yt-min-btn" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">_</button>
-            <button id="yt-close-btn" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">×</button>
-          </div>
-        </div>
-        <div id="yt-player-area" style="flex:1;position:relative;"></div>
-        <div id="yt-controls" style="background:#222;padding:8px 12px;display:flex;align-items:center;gap:12px;">
-          <button id="yt-play-btn">⏯️</button>
-          <input id="yt-seek" type="range" min="0" max="100" value="0" style="flex:1;">
-          <span id="yt-time">0:00 / 0:00</span>
-          <input id="yt-vol" type="range" min="0" max="100" value="100" style="width:80px;">
-        </div>
-      `;
-      document.body.appendChild(ytContainer);
-
-      // Responsive: smaller default on mobile
-      function setYTDefaultSize() {
-        if (window.innerWidth <= 600) {
-          ytContainer.style.width = '90vw';
-          ytContainer.style.height = '28vw';
-          ytContainer.style.right = '5vw';
-          ytContainer.style.bottom = '100px';
-        } else {
-          ytContainer.style.width = '320px';
-          ytContainer.style.height = '180px';
-          ytContainer.style.right = '16px';
-          ytContainer.style.bottom = '80px';
-        }
-      }
-      setYTDefaultSize();
-      window.addEventListener('resize', setYTDefaultSize);
-
-      // Drag logic (mouse + touch)
-      let dragStartX, dragStartY, dragOrigX, dragOrigY;
-      const header = ytContainer.querySelector('#yt-float-header');
-      function dragMove(e) {
-        if (!ytDragging) return;
-        let clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        let clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        let newX = dragOrigX + (clientX - dragStartX);
-        let newY = dragOrigY + (clientY - dragStartY);
-        // Clamp to viewport
-        newX = Math.max(0, Math.min(window.innerWidth - ytContainer.offsetWidth, newX));
-        newY = Math.max(0, Math.min(window.innerHeight - ytContainer.offsetHeight, newY));
-        ytContainer.style.left = newX + 'px';
-        ytContainer.style.top = newY + 'px';
-        ytContainer.style.right = '';
-        ytContainer.style.bottom = '';
-      }
-      function dragEnd() {
-        ytDragging = false;
-        document.body.style.userSelect = '';
-      }
-      header.addEventListener('mousedown', e => {
-        ytDragging = true;
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        dragOrigX = ytContainer.offsetLeft;
-        dragOrigY = ytContainer.offsetTop;
-        document.body.style.userSelect = 'none';
-      });
-      header.addEventListener('touchstart', e => {
-        ytDragging = true;
-        dragStartX = e.touches[0].clientX;
-        dragStartY = e.touches[0].clientY;
-        dragOrigX = ytContainer.offsetLeft;
-        dragOrigY = ytContainer.offsetTop;
-        document.body.style.userSelect = 'none';
-      });
-      document.addEventListener('mousemove', dragMove);
-      document.addEventListener('touchmove', dragMove);
-      document.addEventListener('mouseup', dragEnd);
-      document.addEventListener('touchend', dragEnd);
-
-      // Minimize/expand
-      ytContainer.querySelector('#yt-min-btn').onclick = () => {
-        ytMinimized = !ytMinimized;
-        ytContainer.style.height = ytMinimized ? '40px' : (window.innerWidth <= 600 ? '28vw' : '180px');
-        ytContainer.querySelector('#yt-player-area').style.display = ytMinimized ? 'none' : 'block';
-        ytContainer.querySelector('#yt-controls').style.display = ytMinimized ? 'none' : 'flex';
-      };
-      // Resize (small/large)
-      let ytLarge = false;
-      ytContainer.querySelector('#yt-size-btn').onclick = () => {
-        ytLarge = !ytLarge;
-        if (ytLarge) {
-          ytContainer.style.width = window.innerWidth <= 600 ? '98vw' : '480px';
-          ytContainer.style.height = window.innerWidth <= 600 ? '56vw' : '270px';
-        } else {
-          setYTDefaultSize();
-          ytContainer.style.height = ytMinimized ? '40px' : ytContainer.style.height;
-        }
-      };
-      // Close
-      ytContainer.querySelector('#yt-close-btn').onclick = stopYouTubePlayer;
-      if (picker) {
-        picker.classList.toggle('show');
-      }
+      group.appendChild(wrapper);
+      chat.insertBefore(group, typingStreamContainer);
+      console.log('[displayMessage] Regular group appended:', group, 'to chat:', chat);
     }
 
     function addReaction(messageId, emoji) {
