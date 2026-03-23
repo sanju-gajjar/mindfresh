@@ -1,0 +1,499 @@
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+	font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+	height: 100vh;
+	background: #000;
+	display: flex;
+	justify-content: center;
+}
+
+.app {
+	width: 100%;
+	max-width: 420px;
+	height: 100vh;
+	background: #1a1a1a;
+	display: flex;
+	flex-direction: column;
+}
+
+.header {
+	background: #2d3a8c;
+	color: white;
+	padding: 12px 18px;
+	font-weight: 600;
+	font-size: 16px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.header-left {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.connection-status {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: #1cc88a;
+}
+
+.connection-status.disconnected {
+	background: #e74a3b;
+	animation: blink 1s infinite;
+}
+
+.connection-status.reconnecting {
+	background: #f6c23e;
+	animation: blink 0.5s infinite;
+}
+
+@keyframes blink {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.3; }
+}
+
+.header-buttons {
+	display: flex;
+	gap: 8px;
+}
+
+.room-members {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	padding: 8px 18px;
+	background: #232853;
+	border-bottom: 1px solid #333;
+}
+
+.member-badge {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	background: #333;
+	padding: 5px 10px;
+	border-radius: 15px;
+	font-size: 12px;
+	color: #fff;
+}
+
+.member-badge .status-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: #e74a3b;
+}
+
+.member-badge .status-dot.online {
+	background: #1cc88a;
+}
+
+.member-badge.you {
+	background: #4e73df;
+}
+
+.members-label {
+	color: #888;
+	font-size: 11px;
+	margin-right: 4px;
+}
+
+.waiting-badge {
+	color: #888;
+	font-style: italic;
+	font-size: 12px;
+}
+
+.call-btn {
+	background: #1cc88a;
+	border: none;
+	color: white;
+	padding: 8px 12px;
+	border-radius: 20px;
+	cursor: pointer;
+	font-size: 14px;
+}
+
+.call-btn.video {
+	background: #4e73df;
+}
+
+.call-btn.end {
+	background: #e74a3b;
+}
+
+.chat-area {
+	flex: 1;
+	padding: 15px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+}
+
+.message {
+	max-width: 100%;
+	padding: 12px 14px;
+	border-radius: 18px;
+	margin-bottom: 10px;
+	font-size: 14px;
+	word-wrap: break-word;
+}
+
+.me {
+	background: #4e73df;
+	color: white;
+	align-self: flex-end;
+	border-bottom-right-radius: 5px;
+}
+
+.other {
+	background: #333;
+	color: #fff;
+	align-self: flex-start;
+	border-bottom-left-radius: 5px;
+}
+
+.message img {
+	max-width: 100%;
+	border-radius: 12px;
+	margin-top: 5px;
+}
+
+.input-area {
+	display: flex;
+	padding: 10px;
+	border-top: 1px solid #333;
+	background: #1a1a1a;
+}
+
+.input-area input[type="text"] {
+	flex: 1;
+	padding: 12px;
+	border-radius: 20px;
+	border: 1px solid #333;
+	background: #2a2a2a;
+	color: #fff;
+	font-size: 14px;
+	margin-right: 8px;
+}
+
+.input-area input[type="text"]::placeholder {
+	color: #888;
+}
+
+.send-btn {
+	background: #1cc88a;
+	border: none;
+	color: white;
+	padding: 0 18px;
+	border-radius: 20px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.file-btn {
+	background: #858796;
+	border: none;
+	color: white;
+	padding: 0 12px;
+	border-radius: 20px;
+	margin-right: 8px;
+	cursor: pointer;
+}
+
+.emoji-btn {
+	background: #f6c23e;
+	border: none;
+	color: #333;
+	padding: 0 12px;
+	border-radius: 20px;
+	margin-right: 8px;
+	cursor: pointer;
+	font-size: 16px;
+}
+
+.emoji-picker {
+	position: absolute;
+	bottom: 60px;
+	left: 10px;
+	right: 10px;
+	background: #2a2a2a;
+	border-radius: 12px;
+	padding: 10px;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+	display: none;
+	max-height: 250px;
+	overflow-y: auto;
+	z-index: 100;
+}
+
+.emoji-picker.show {
+	display: block;
+}
+
+.emoji-tabs {
+	display: flex;
+	gap: 5px;
+	margin-bottom: 10px;
+	border-bottom: 1px solid #444;
+	padding-bottom: 8px;
+}
+
+.emoji-tab {
+	padding: 6px 12px;
+	background: #333;
+	border: none;
+	border-radius: 8px;
+	color: #fff;
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.emoji-tab.active {
+	background: #4e73df;
+}
+
+.emoji-grid {
+	display: grid;
+	grid-template-columns: repeat(8, 1fr);
+	gap: 5px;
+}
+
+.emoji-item {
+	font-size: 22px;
+	padding: 5px;
+	text-align: center;
+	cursor: pointer;
+	border-radius: 6px;
+	transition: background 0.2s;
+}
+
+.emoji-item:hover {
+	background: #444;
+}
+
+.sticker-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 8px;
+}
+
+.sticker-item {
+	font-size: 40px;
+	padding: 8px;
+	text-align: center;
+	cursor: pointer;
+	border-radius: 8px;
+	transition: background 0.2s;
+}
+
+.sticker-item:hover {
+	background: #444;
+}
+
+.input-wrapper {
+	position: relative;
+	flex: 1;
+	display: flex;
+}
+
+.gif-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 8px;
+}
+
+.gif-item {
+	width: 100%;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: transform 0.2s;
+}
+
+.gif-item:hover {
+	transform: scale(1.05);
+}
+
+/* Video Call Overlay */
+.call-overlay {
+	position: fixed;
+	top: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 100%;
+	max-width: 420px;
+	height: 100vh;
+	background: #000;
+	z-index: 1000;
+	display: none;
+	flex-direction: column;
+}
+
+.call-overlay.active {
+	display: flex;
+}
+
+.video-container {
+	flex: 1;
+	position: relative;
+	background: #1a1a1a;
+}
+
+.remote-video {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	background: #333;
+}
+
+.local-video {
+	position: absolute;
+	bottom: 100px;
+	right: 15px;
+	width: 120px;
+	height: 160px;
+	border-radius: 12px;
+	object-fit: cover;
+	background: #222;
+	border: 2px solid #fff;
+}
+
+.call-controls {
+	position: absolute;
+	bottom: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	gap: 15px;
+}
+
+.control-btn {
+	width: 50px;
+	height: 50px;
+	border-radius: 50%;
+	border: none;
+	cursor: pointer;
+	font-size: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.control-btn.mute {
+	background: #333;
+	color: white;
+}
+
+.control-btn.mute.active {
+	background: #e74a3b;
+}
+
+.control-btn.video-toggle {
+	background: #333;
+	color: white;
+}
+
+.control-btn.video-toggle.active {
+	background: #e74a3b;
+}
+
+.control-btn.end-call {
+	background: #e74a3b;
+	color: white;
+}
+
+.call-status {
+	position: absolute;
+	top: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	color: white;
+	font-size: 14px;
+	background: rgba(0, 0, 0, 0.5);
+	padding: 8px 16px;
+	border-radius: 20px;
+}
+
+/* Incoming Call Modal */
+.incoming-call-modal {
+	position: fixed;
+	top: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 100%;
+	max-width: 420px;
+	height: 100vh;
+	background: rgba(0, 0, 0, 0.9);
+	z-index: 1002;
+	display: none;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+
+.incoming-call-modal.active {
+	display: flex;
+}
+
+.incoming-call-content {
+	text-align: center;
+	color: white;
+}
+
+.incoming-call-content h2 {
+	font-size: 24px;
+	margin-bottom: 10px;
+}
+
+.incoming-call-content p {
+	font-size: 16px;
+	opacity: 0.8;
+	margin-bottom: 30px;
+}
+
+.incoming-call-icon {
+	font-size: 80px;
+	margin-bottom: 20px;
+	animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+	0%, 100% { transform: scale(1); }
+	50% { transform: scale(1.1); }
+}
+
+.incoming-call-buttons {
+	display: flex;
+	gap: 30px;
+}
+
+.incoming-call-buttons button {
+	width: 70px;
+	height: 70px;
+	border-radius: 50%;
+	border: none;
+	cursor: pointer;
+	font-size: 28px;
+}
+
+.accept-call {
+	background: #1cc88a;
+	color: white;
+}
+
+.reject-call {
+	background: #e74a3b;
+	color: white;
+}
+
+button:active {
+	transform: scale(0.95);
+}

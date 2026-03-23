@@ -1386,13 +1386,6 @@
 
 <body>
 
-
-  <!-- Floating YouTube Player -->
-  <div id="ytFloatingPlayer" style="display:none;position:fixed;top:80px;left:60px;width:420px;height:320px;z-index:3000;box-shadow:0 4px 32px #000a;border-radius:16px;overflow:hidden;background:#181818;resize:both;min-width:320px;min-height:220px;">
-    <iframe id="ytPlayerFrame" src="youtube-player.html" style="width:100%;height:100%;border:none;background:#181818;" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-    <button id="ytCloseBtn" style="position:absolute;top:8px;right:8px;z-index:10;background:#222;color:#fff;border:none;border-radius:6px;padding:2px 8px;font-size:18px;cursor:pointer;">×</button>
-  </div>
-
   <div class="app">
 
     <!-- Header -->
@@ -1411,14 +1404,31 @@
         <button class="action-btn" onclick="openSettings()" title="Settings">⚙️</button>
         <button class="action-btn" onclick="startCall(false)">🎤 Voice</button>
         <button class="action-btn" onclick="startCall(true)">📹 Video</button>
-        <button class="action-btn" id="ytShowBtn" title="YouTube Player">▶️ YouTube</button>
       </div>
     </div>
+
 
     <!-- Members Bar -->
     <div class="members-bar" id="membersBar">
       <span class="members-label">Members:</span>
       <span class="waiting-text">Waiting for others...</span>
+    </div>
+
+    <!-- Mini Video Call (PiP) Inline Below Members Bar -->
+    <div id="miniCallInline" style="display:none;width:100%;max-width:800px;margin:0 auto 8px auto;position:relative;z-index:1200;">
+      <div style="display:flex;align-items:center;gap:12px;background:#18181f;border-radius:12px;padding:8px 12px;box-shadow:0 2px 12px #0004;">
+        <div style="position:relative;width:80px;height:100px;flex-shrink:0;">
+          <video id="miniRemoteVideoInline" autoplay playsinline style="width:100%;height:100%;object-fit:cover;border-radius:8px;background:#222;display:none;"></video>
+          <div id="miniCallPlaceholderInline" style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;background:rgba(20,20,32,0.7);font-size:12px;text-align:center;border-radius:8px;">Video call in progress…</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:13px;color:#fff;">Video Call Ongoing</div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="restoreCallOverlayInline(event)" style="background:#222;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:14px;cursor:pointer;">🔼 Restore</button>
+            <button onclick="endCallFromMiniInline(event)" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:14px;cursor:pointer;">✕ End</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Join Requests (Owner Only) -->
@@ -1506,13 +1516,6 @@
       </div>
     </div>
 
-    <!-- Mini Video PiP -->
-    <div id="miniCall" style="display:none;position:fixed;top:16px;right:16px;width:120px;height:160px;z-index:1200;background:#111;border-radius:12px;box-shadow:0 2px 12px #0008;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;cursor:pointer;">
-      <video id="miniRemoteVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video>
-      <div style="position:absolute;top:4px;right:4px;z-index:2;">
-        <button onclick="restoreCallOverlay(event)" style="background:#222;color:#fff;border:none;border-radius:6px;padding:2px 6px;font-size:14px;cursor:pointer;">🔼</button>
-      </div>
-    </div>
   </div>
 
   <!-- Incoming Call Modal -->
@@ -1596,64 +1599,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    // --- Floating YouTube Player Logic ---
-    const ytFloatingPlayer = document.getElementById('ytFloatingPlayer');
-    const ytShowBtn = document.getElementById('ytShowBtn');
-    const ytCloseBtn = document.getElementById('ytCloseBtn');
-    let isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
-
-    ytShowBtn.onclick = function() {
-      ytFloatingPlayer.style.display = 'block';
-      ytFloatingPlayer.focus();
-    };
-    ytCloseBtn.onclick = function() {
-      ytFloatingPlayer.style.display = 'none';
-    };
-
-    // Dragging logic
-    ytFloatingPlayer.addEventListener('mousedown', function(e) {
-      if (e.target !== ytFloatingPlayer && e.target !== ytPlayerFrame) return;
-      isDragging = true;
-      dragOffsetX = e.clientX - ytFloatingPlayer.offsetLeft;
-      dragOffsetY = e.clientY - ytFloatingPlayer.offsetTop;
-      ytFloatingPlayer.style.transition = 'none';
-    });
-    document.addEventListener('mousemove', function(e) {
-      if (!isDragging) return;
-      let x = e.clientX - dragOffsetX;
-      let y = e.clientY - dragOffsetY;
-      // Keep within viewport
-      x = Math.max(0, Math.min(window.innerWidth - ytFloatingPlayer.offsetWidth, x));
-      y = Math.max(0, Math.min(window.innerHeight - ytFloatingPlayer.offsetHeight, y));
-      ytFloatingPlayer.style.left = x + 'px';
-      ytFloatingPlayer.style.top = y + 'px';
-    });
-    document.addEventListener('mouseup', function() {
-      isDragging = false;
-      ytFloatingPlayer.style.transition = '';
-    });
-    // Double-click header to toggle size
-    ytFloatingPlayer.addEventListener('dblclick', function(e) {
-      if (ytFloatingPlayer.style.width !== '90vw') {
-        ytFloatingPlayer.style.width = '90vw';
-        ytFloatingPlayer.style.height = '70vh';
-        ytFloatingPlayer.style.left = '5vw';
-        ytFloatingPlayer.style.top = '10vh';
-      } else {
-        ytFloatingPlayer.style.width = '420px';
-        ytFloatingPlayer.style.height = '320px';
-        ytFloatingPlayer.style.left = '60px';
-        ytFloatingPlayer.style.top = '80px';
-      }
-    });
-    // Optional: ESC to close
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && ytFloatingPlayer.style.display === 'block') {
-        ytFloatingPlayer.style.display = 'none';
-      }
-    });
-  </script>
-  <script>
     const socket = io({
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -1677,14 +1622,190 @@
     let isOwner = false;
     let ownerId = null;
     let pendingRequest = false;
+    let ytPlayerFrame = null;
+    let ytPlayerFrameReady = false;
+    let ytFrameLarge = false;
+    let activeVideoHost = null;
+    const pendingFrameMessages = [];
 
     document.getElementById("roomCode").innerText = roomId;
+
+    function getRequiredUsername() {
+      let username = localStorage.getItem('chatUsername');
+
+      if (!username || !username.trim()) {
+        username = prompt("Enter your username (required):");
+        if (!username || !username.trim()) {
+          alert("Username is required to join the room.");
+          window.location.href = "/";
+          return null;
+        }
+
+        username = username.trim();
+        localStorage.setItem('chatUsername', username);
+      }
+
+      return username.trim();
+    }
+
+    function getVideoUserId() {
+      return localStorage.getItem('chatUsername') || socket.id;
+    }
+
+    function extractYouTubeId(url) {
+      const regex = /(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]{11})/;
+      const match = url.match(regex);
+      return match ? match[1] : null;
+    }
+
+    function getDefaultPlayerLayout() {
+      if (window.innerWidth <= 600) {
+        return {
+          width: Math.round(window.innerWidth * 0.9),
+          height: Math.max(180, Math.round(window.innerWidth * 0.56)),
+          right: Math.round(window.innerWidth * 0.05),
+          bottom: 100
+        };
+      }
+
+      return {
+        width: 320,
+        height: 180,
+        right: 16,
+        bottom: 80
+      };
+    }
+
+    function ensureYouTubePlayerFrame() {
+      if (ytPlayerFrame) return ytPlayerFrame;
+
+      const defaultLayout = getDefaultPlayerLayout();
+      ytPlayerFrame = document.createElement('iframe');
+      ytPlayerFrame.id = 'ytPlayerFrame';
+      ytPlayerFrame.src = '/youtube-player.html';
+      ytPlayerFrame.setAttribute('title', 'Shared YouTube Player');
+      ytPlayerFrame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+      ytPlayerFrame.style.position = 'fixed';
+      ytPlayerFrame.style.border = 'none';
+      ytPlayerFrame.style.borderRadius = '16px';
+      ytPlayerFrame.style.overflow = 'hidden';
+      ytPlayerFrame.style.background = 'transparent';
+      ytPlayerFrame.style.display = 'none';
+      ytPlayerFrame.style.zIndex = '3000';
+      ytPlayerFrame.style.width = `${defaultLayout.width}px`;
+      ytPlayerFrame.style.height = `${defaultLayout.height}px`;
+      ytPlayerFrame.style.right = `${defaultLayout.right}px`;
+      ytPlayerFrame.style.bottom = `${defaultLayout.bottom}px`;
+      document.body.appendChild(ytPlayerFrame);
+
+      ytPlayerFrame.addEventListener('load', () => {
+        sendMessageToYouTubeFrame({
+          type: 'init',
+          currentUserId: getVideoUserId()
+        });
+      });
+
+      return ytPlayerFrame;
+    }
+
+    function sendMessageToYouTubeFrame(message) {
+      ensureYouTubePlayerFrame();
+
+      const payload = {
+        source: 'mindfresh-room',
+        ...message
+      };
+
+      if (!ytPlayerFrameReady || !ytPlayerFrame.contentWindow) {
+        pendingFrameMessages.push(payload);
+        return;
+      }
+
+      ytPlayerFrame.contentWindow.postMessage(payload, window.location.origin);
+    }
+
+    function flushYouTubeFrameMessages() {
+      while (pendingFrameMessages.length && ytPlayerFrameReady && ytPlayerFrame?.contentWindow) {
+        ytPlayerFrame.contentWindow.postMessage(pendingFrameMessages.shift(), window.location.origin);
+      }
+    }
+
+    function applyYouTubeFrameLayout(layout = {}) {
+      const frame = ensureYouTubePlayerFrame();
+      const defaultLayout = getDefaultPlayerLayout();
+      const width = layout.width || defaultLayout.width;
+      const height = layout.height || defaultLayout.height;
+
+      frame.style.width = `${width}px`;
+      frame.style.height = `${height}px`;
+
+      if (typeof layout.left === 'number') {
+        frame.style.left = `${layout.left}px`;
+        frame.style.top = `${layout.top || 0}px`;
+        frame.style.right = '';
+        frame.style.bottom = '';
+      } else {
+        frame.style.left = '';
+        frame.style.top = '';
+        frame.style.right = `${layout.right ?? defaultLayout.right}px`;
+        frame.style.bottom = `${layout.bottom ?? defaultLayout.bottom}px`;
+      }
+    }
+
+    function setYouTubeFrameVisible(visible) {
+      ensureYouTubePlayerFrame().style.display = visible ? 'block' : 'none';
+    }
+
+    function clampYouTubeFrameToViewport() {
+      if (!ytPlayerFrame || !ytPlayerFrame.style.left) return;
+
+      const width = ytPlayerFrame.offsetWidth || 0;
+      const height = ytPlayerFrame.offsetHeight || 0;
+      const maxLeft = Math.max(0, window.innerWidth - width);
+      const maxTop = Math.max(0, window.innerHeight - height);
+      const currentLeft = parseFloat(ytPlayerFrame.style.left) || 0;
+      const currentTop = parseFloat(ytPlayerFrame.style.top) || 0;
+
+      ytPlayerFrame.style.left = `${Math.max(0, Math.min(maxLeft, currentLeft))}px`;
+      ytPlayerFrame.style.top = `${Math.max(0, Math.min(maxTop, currentTop))}px`;
+    }
+
+    function resizeYouTubeFrame(mode, minimized) {
+      const defaults = getDefaultPlayerLayout();
+      const height = minimized ? 40 : defaults.height;
+      let width = defaults.width;
+      let finalHeight = height;
+
+      if (mode === 'large') {
+        ytFrameLarge = true;
+        width = window.innerWidth <= 600 ? Math.round(window.innerWidth * 0.98) : 480;
+        finalHeight = minimized ? 40 : (window.innerWidth <= 600 ? Math.round(window.innerWidth * 0.56) : 270);
+      } else if (mode === 'default' || mode === 'minimized') {
+        ytFrameLarge = false;
+      }
+
+      applyYouTubeFrameLayout({
+        width,
+        height: finalHeight,
+        right: defaults.right,
+        bottom: defaults.bottom
+      });
+      clampYouTubeFrameToViewport();
+    }
 
     // Connection handling
     socket.on("connect", () => {
       connectionDot.classList.remove("disconnected");
       connectionText.innerText = "Connected";
-      socket.emit("join-room", roomId);
+      const username = getRequiredUsername();
+      if (!username) return;
+
+      socket.emit('set-username', username);
+      sendMessageToYouTubeFrame({
+        type: 'init',
+        currentUserId: username
+      });
+      socket.emit("join-room", { roomId, username });
     });
 
     socket.on("disconnect", () => {
@@ -1715,11 +1836,6 @@
 
     socket.on("kicked-from-room", () => {
       alert("You have been removed from the room by the owner.");
-      window.location.href = "/";
-    });
-
-    socket.on("room-full", () => {
-      alert("This room is full (max 2 members).");
       window.location.href = "/";
     });
 
@@ -1795,9 +1911,6 @@
           `;
         });
 
-        if (members.length < 2) {
-          html += '<span class="waiting-text">+ Waiting for 1 more...</span>';
-        }
       }
 
       bar.innerHTML = html;
@@ -1904,6 +2017,20 @@
       const input = document.getElementById("msg");
       const message = input.value.trim();
       if (!message) return;
+
+      const videoId = extractYouTubeId(message);
+      if (videoId) {
+        const userId = getVideoUserId();
+        socket.emit("video:start", {
+          roomId,
+          videoId,
+          startTimestamp: Date.now(),
+          userId
+        });
+        input.value = "";
+        clearTypingState();
+        return;
+      }
 
       // Clear typing state immediately
       clearTypingState();
@@ -2690,14 +2817,26 @@
       socket.emit('end-call', { roomId });
     }
 
+    function endCallFromMini(e) {
+      e.stopPropagation();
+      endCall();
+    }
+
     // Minimize/Restore Call Overlay
     document.getElementById('minimizeCallBtn').onclick = function() {
       // Hide overlay, show mini PiP
       document.getElementById('callOverlay').classList.remove('active');
       const remoteVideo = document.getElementById('remoteVideo');
       const miniRemoteVideo = document.getElementById('miniRemoteVideo');
+      const miniCallPlaceholder = document.getElementById('miniCallPlaceholder');
       if (remoteVideo.srcObject) {
         miniRemoteVideo.srcObject = remoteVideo.srcObject;
+        miniRemoteVideo.style.display = 'block';
+        miniCallPlaceholder.style.display = 'none';
+      } else {
+        miniRemoteVideo.srcObject = null;
+        miniRemoteVideo.style.display = 'none';
+        miniCallPlaceholder.style.display = 'flex';
       }
       document.getElementById('miniCall').style.display = 'flex';
     };
@@ -2712,6 +2851,23 @@
       if (miniRemoteVideo.srcObject) {
         remoteVideo.srcObject = miniRemoteVideo.srcObject;
       }
+    }
+
+    // Keep mini video updated if remote stream starts after minimization
+    const remoteVideo = document.getElementById('remoteVideo');
+    if (remoteVideo) {
+      remoteVideo.addEventListener('loadedmetadata', function() {
+        const miniCall = document.getElementById('miniCall');
+        if (miniCall.style.display === 'flex') {
+          const miniRemoteVideo = document.getElementById('miniRemoteVideo');
+          const miniCallPlaceholder = document.getElementById('miniCallPlaceholder');
+          if (remoteVideo.srcObject) {
+            miniRemoteVideo.srcObject = remoteVideo.srcObject;
+            miniRemoteVideo.style.display = 'block';
+            miniCallPlaceholder.style.display = 'none';
+          }
+        }
+      });
     }
 
     // ===== Chat Settings =====
@@ -2813,6 +2969,106 @@
       }
       updatePreview();
     }
+
+    ensureYouTubePlayerFrame();
+
+    window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin || event.source !== ytPlayerFrame?.contentWindow || !event.data || event.data.source !== 'mindfresh-yt-frame') {
+        return;
+      }
+
+      if (event.data.type === 'ready') {
+        ytPlayerFrameReady = true;
+        flushYouTubeFrameMessages();
+        return;
+      }
+
+      if (event.data.type === 'control') {
+        socket.emit(event.data.eventName, {
+          roomId,
+          userId: getVideoUserId(),
+          currentTime: event.data.currentTime,
+          volume: event.data.volume
+        });
+        return;
+      }
+
+      if (event.data.type === 'frame-drag' && ytPlayerFrame) {
+        const currentLeft = ytPlayerFrame.style.left ? parseFloat(ytPlayerFrame.style.left) : (window.innerWidth - ytPlayerFrame.offsetWidth - (parseFloat(ytPlayerFrame.style.right) || 0));
+        const currentTop = ytPlayerFrame.style.top ? parseFloat(ytPlayerFrame.style.top) : (window.innerHeight - ytPlayerFrame.offsetHeight - (parseFloat(ytPlayerFrame.style.bottom) || 0));
+
+        applyYouTubeFrameLayout({
+          width: ytPlayerFrame.offsetWidth,
+          height: ytPlayerFrame.offsetHeight,
+          left: currentLeft + (event.data.deltaX || 0),
+          top: currentTop + (event.data.deltaY || 0)
+        });
+        clampYouTubeFrameToViewport();
+        return;
+      }
+
+      if (event.data.type === 'frame-resize') {
+        resizeYouTubeFrame(event.data.mode, event.data.minimized);
+        return;
+      }
+
+      if (event.data.type === 'close-request') {
+        if (event.data.isHost) {
+          socket.emit('video:stop', {
+            roomId,
+            userId: getVideoUserId()
+          });
+        } else {
+          setYouTubeFrameVisible(false);
+        }
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (!ytPlayerFrame) return;
+
+      if (!ytPlayerFrame.style.left) {
+        resizeYouTubeFrame(ytFrameLarge ? 'large' : 'default', ytPlayerFrame.offsetHeight === 40);
+      } else {
+        clampYouTubeFrameToViewport();
+      }
+    });
+
+    socket.on('video:start', ({ videoId, startTimestamp, userId }) => {
+      activeVideoHost = userId;
+      resizeYouTubeFrame(ytFrameLarge ? 'large' : 'default', false);
+      setYouTubeFrameVisible(true);
+      sendMessageToYouTubeFrame({
+        type: 'video:start',
+        videoId,
+        startTimestamp,
+        userId
+      });
+    });
+
+    socket.on('video:stop', () => {
+      activeVideoHost = null;
+      setYouTubeFrameVisible(false);
+      sendMessageToYouTubeFrame({ type: 'video:stop' });
+    });
+
+    ['video:play', 'video:pause', 'video:seek', 'video:sync', 'video:volume'].forEach((eventName) => {
+      socket.on(eventName, (payload) => {
+        sendMessageToYouTubeFrame({
+          type: eventName,
+          ...payload
+        });
+      });
+    });
+
+    window.addEventListener('beforeunload', () => {
+      if (activeVideoHost === getVideoUserId()) {
+        socket.emit('video:stop', {
+          roomId,
+          userId: getVideoUserId()
+        });
+      }
+    });
 
     // Load settings on page load
     loadChatSettings();

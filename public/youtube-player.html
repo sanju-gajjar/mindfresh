@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>YouTube Player</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Söhne', 'Segoe UI', 'SF Pro Display', -apple-system, sans-serif;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    body {
+      padding: 0;
+    }
+
+    .player-shell {
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 16px;
+      background: #181818;
+      box-shadow: 0 4px 32px rgba(0, 0, 0, 0.65);
+      color: #fff;
+    }
+
+    .player-shell.visible {
+      display: flex;
+    }
+
+    .player-header {
+      cursor: grab;
+      user-select: none;
+      background: #222;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .player-title {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .player-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+    }
+
+    .icon-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .player-area {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      background: #000;
+    }
+
+    .player-area.hidden,
+    .controls.hidden {
+      display: none;
+    }
+
+    #yt-player-area {
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      background: #222;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .control-btn {
+      background: #2d2d2d;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      padding: 8px 10px;
+      min-width: 44px;
+    }
+
+    .control-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .range-input {
+      flex: 1;
+    }
+
+    .volume-input {
+      width: 78px;
+    }
+
+    .time-label {
+      min-width: 82px;
+      text-align: center;
+      font-size: 12px;
+      color: #d2d2d2;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="player-shell" id="playerShell">
+    <div class="player-header" id="playerHeader">
+      <span class="player-title">YouTube Video</span>
+      <div class="player-actions">
+        <button class="icon-btn" id="sizeBtn" title="Resize">🔳</button>
+        <button class="icon-btn" id="minBtn" title="Minimize">_</button>
+        <button class="icon-btn" id="closeBtn" title="Close">×</button>
+      </div>
+    </div>
+    <div class="player-area" id="playerArea">
+      <div id="yt-player-area"></div>
+    </div>
+    <div class="controls" id="playerControls">
+      <button class="control-btn" id="playBtn">⏯️</button>
+      <input class="range-input" id="seekInput" type="range" min="0" max="100" value="0" />
+      <span class="time-label" id="timeLabel">0:00 / 0:00</span>
+      <input class="volume-input" id="volumeInput" type="range" min="0" max="100" value="100" />
+    </div>
+  </div>
+
+  <script>
+    const shell = document.getElementById('playerShell');
+    const header = document.getElementById('playerHeader');
+    const playerArea = document.getElementById('playerArea');
+    const controls = document.getElementById('playerControls');
+    const playBtn = document.getElementById('playBtn');
+    const seekInput = document.getElementById('seekInput');
+    const volumeInput = document.getElementById('volumeInput');
+    const timeLabel = document.getElementById('timeLabel');
+    const sizeBtn = document.getElementById('sizeBtn');
+    const minBtn = document.getElementById('minBtn');
+    const closeBtn = document.getElementById('closeBtn');
+
+    let ytPlayer = null;
+    let ytVideoId = null;
+    let ytHost = null;
+    let currentUserId = null;
+    let ytMinimized = false;
+    let ytLarge = false;
+    let ytSyncInterval = null;
+    let dragPointerId = null;
+    let lastDragPoint = null;
+
+    function postToParent(type, payload = {}) {
+      window.parent.postMessage({
+        source: 'mindfresh-yt-frame',
+        type,
+        ...payload
+      }, window.location.origin);
+    }
+
+    function isHost() {
+      return currentUserId && ytHost && currentUserId === ytHost;
+    }
+
+    function loadYouTubeAPI(callback) {
+      if (window.YT && window.YT.Player) {
+        callback();
+        return;
+      }
+
+      if (window.__ytApiLoading) {
+        window.__ytApiCallbacks.push(callback);
+        return;
+      }
+
+      window.__ytApiLoading = true;
+      window.__ytApiCallbacks = [callback];
+
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.body.appendChild(tag);
+
+      window.onYouTubeIframeAPIReady = () => {
+        const callbacks = window.__ytApiCallbacks || [];
+        callbacks.forEach((cb) => cb());
+        window.__ytApiCallbacks = [];
+      };
+    }
+
+    function startSyncInterval() {
+      stopSyncInterval();
+      if (!isHost()) return;
+
+      ytSyncInterval = window.setInterval(() => {
+        if (!ytPlayer || !ytPlayer.getCurrentTime || !isHost()) return;
+        postToParent('control', {
+          eventName: 'video:sync',
+          currentTime: ytPlayer.getCurrentTime()
+        });
+      }, 3000);
+    }
+
+    function stopSyncInterval() {
+      if (ytSyncInterval) {
+        window.clearInterval(ytSyncInterval);
+        ytSyncInterval = null;
+      }
+    }
+
+    function setShellVisible(isVisible) {
+      shell.classList.toggle('visible', isVisible);
+    }
+
+    function setMinimized(minimized) {
+      ytMinimized = minimized;
+      playerArea.classList.toggle('hidden', minimized);
+      controls.classList.toggle('hidden', minimized);
+      postToParent('frame-resize', {
+        mode: 'minimized',
+        minimized
+      });
+    }
+
+    function toggleSize() {
+      ytLarge = !ytLarge;
+      postToParent('frame-resize', {
+        mode: ytLarge ? 'large' : 'default',
+        minimized: ytMinimized
+      });
+    }
+
+    function stopPlayer() {
+      stopSyncInterval();
+      if (ytPlayer && ytPlayer.destroy) {
+        ytPlayer.destroy();
+      }
+      ytPlayer = null;
+      ytVideoId = null;
+      ytHost = null;
+      setShellVisible(false);
+    }
+
+    function formatTime(sec) {
+      const total = Math.max(0, Math.floor(sec || 0));
+      return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+    }
+
+    function updateControls() {
+      if (!ytPlayer) return;
+
+      const duration = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
+      const currentTime = ytPlayer.getCurrentTime ? ytPlayer.getCurrentTime() : 0;
+
+      seekInput.value = duration ? (currentTime / duration) * 100 : 0;
+      timeLabel.innerText = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+
+      if (ytPlayer.getVolume) {
+        volumeInput.value = ytPlayer.getVolume();
+      }
+
+      const canControl = isHost();
+      playBtn.disabled = !canControl;
+      seekInput.disabled = !canControl;
+    }
+
+    function onPlayerReady() {
+      updateControls();
+      startSyncInterval();
+    }
+
+    function onPlayerStateChange() {
+      updateControls();
+    }
+
+    function startPlayer(videoId, startTimestamp, host) {
+      ytVideoId = videoId;
+      ytHost = host;
+      setShellVisible(true);
+      setMinimized(false);
+      postToParent('frame-resize', {
+        mode: ytLarge ? 'large' : 'default',
+        minimized: false
+      });
+
+      loadYouTubeAPI(() => {
+        if (ytPlayer && ytPlayer.destroy) {
+          ytPlayer.destroy();
+        }
+
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startTimestamp) / 1000));
+
+        ytPlayer = new YT.Player('yt-player-area', {
+          width: '100%',
+          height: '100%',
+          videoId,
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            rel: 0,
+            modestbranding: 1,
+            start: elapsedSeconds
+          },
+          events: {
+            onReady: onPlayerReady,
+            onStateChange: onPlayerStateChange
+          }
+        });
+      });
+    }
+
+    function handleControl(eventName, payload) {
+      if (!ytPlayer) return;
+
+      if (eventName === 'video:play' && !isHost()) {
+        ytPlayer.seekTo(payload.currentTime || 0, true);
+        ytPlayer.playVideo();
+      }
+
+      if (eventName === 'video:pause' && !isHost()) {
+        ytPlayer.seekTo(payload.currentTime || 0, true);
+        ytPlayer.pauseVideo();
+      }
+
+      if (eventName === 'video:seek' && !isHost()) {
+        ytPlayer.seekTo(payload.currentTime || 0, true);
+      }
+
+      if (eventName === 'video:sync' && !isHost()) {
+        const playerTime = ytPlayer.getCurrentTime ? ytPlayer.getCurrentTime() : 0;
+        if (Math.abs(playerTime - (payload.currentTime || 0)) > 1) {
+          ytPlayer.seekTo(payload.currentTime || 0, true);
+        }
+      }
+
+      if (eventName === 'video:volume' && ytPlayer.setVolume) {
+        ytPlayer.setVolume(payload.volume || 0);
+      }
+
+      updateControls();
+    }
+
+    playBtn.onclick = () => {
+      if (!ytPlayer || !isHost()) return;
+
+      const state = ytPlayer.getPlayerState();
+      const currentTime = ytPlayer.getCurrentTime();
+
+      if (state === YT.PlayerState.PLAYING) {
+        ytPlayer.pauseVideo();
+        postToParent('control', { eventName: 'video:pause', currentTime });
+      } else {
+        ytPlayer.playVideo();
+        postToParent('control', { eventName: 'video:play', currentTime });
+      }
+    };
+
+    seekInput.oninput = (event) => {
+      if (!ytPlayer || !isHost()) return;
+      const duration = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
+      const currentTime = duration ? (Number(event.target.value) / 100) * duration : 0;
+      ytPlayer.seekTo(currentTime, true);
+      postToParent('control', { eventName: 'video:seek', currentTime });
+    };
+
+    volumeInput.oninput = (event) => {
+      if (!ytPlayer || !ytPlayer.setVolume) return;
+      ytPlayer.setVolume(Number(event.target.value));
+    };
+
+    minBtn.onclick = () => {
+      setMinimized(!ytMinimized);
+    };
+
+    sizeBtn.onclick = () => {
+      toggleSize();
+    };
+
+    closeBtn.onclick = () => {
+      postToParent('close-request', { isHost: isHost() });
+      stopPlayer();
+    };
+
+    header.addEventListener('pointerdown', (event) => {
+      dragPointerId = event.pointerId;
+      lastDragPoint = { x: event.clientX, y: event.clientY };
+      header.setPointerCapture(event.pointerId);
+    });
+
+    header.addEventListener('pointermove', (event) => {
+      if (dragPointerId !== event.pointerId || !lastDragPoint) return;
+
+      const deltaX = event.clientX - lastDragPoint.x;
+      const deltaY = event.clientY - lastDragPoint.y;
+      lastDragPoint = { x: event.clientX, y: event.clientY };
+
+      postToParent('frame-drag', { deltaX, deltaY });
+    });
+
+    function stopDragging(event) {
+      if (dragPointerId === event.pointerId) {
+        dragPointerId = null;
+        lastDragPoint = null;
+      }
+    }
+
+    header.addEventListener('pointerup', stopDragging);
+    header.addEventListener('pointercancel', stopDragging);
+
+    window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin || !event.data || event.data.source !== 'mindfresh-room') {
+        return;
+      }
+
+      const { type } = event.data;
+
+      if (type === 'init') {
+        currentUserId = event.data.currentUserId || null;
+        updateControls();
+        startSyncInterval();
+      }
+
+      if (type === 'video:start') {
+        startPlayer(event.data.videoId, event.data.startTimestamp, event.data.userId);
+      }
+
+      if (type === 'video:stop') {
+        stopPlayer();
+      }
+
+      if (type === 'video:play' || type === 'video:pause' || type === 'video:seek' || type === 'video:sync' || type === 'video:volume') {
+        handleControl(type, event.data);
+      }
+    });
+
+    window.setInterval(updateControls, 500);
+    postToParent('ready');
+  </script>
+</body>
+
+</html>

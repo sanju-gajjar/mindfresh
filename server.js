@@ -245,13 +245,7 @@ io.on("connection", (socket) => {
 
     // If room has owner and this user isn't owner or existing member, send join request
     if (roomOwners[roomId] && !isEffectiveOwner && !existingMember && roomMembers[roomId].length > 0) {
-      // Check if room is full
-      if (roomMembers[roomId].length >= 2) {
-        socket.emit("room-full");
-        return;
-      }
-
-      // Send join request to owner
+      // Send join request to owner (no room size limit)
       const username = users[socket.id] ? users[socket.id].username : `User${Math.floor(Math.random() * 9999)}`;
       const request = {
         id: socket.id,
@@ -718,19 +712,16 @@ io.on("connection", (socket) => {
       delete strangerPairs[socket.id];
     }
 
-    // Handle room disconnect - mark user as offline but keep in room
+    // Handle room disconnect - REMOVE user from roomMembers
     if (users[socket.id] && users[socket.id].currentRoom) {
       const roomId = users[socket.id].currentRoom;
       if (roomMembers[roomId]) {
-        const memberIndex = roomMembers[roomId].findIndex(m => m.id === socket.id);
-        if (memberIndex !== -1) {
-          roomMembers[roomId][memberIndex].isOnline = false;
-          // Emit updated room members to remaining users
-          io.to(roomId).emit("room-members", {
-            members: roomMembers[roomId],
-            ownerId: roomOwners[roomId]
-          });
-        }
+        roomMembers[roomId] = roomMembers[roomId].filter(m => m.id !== socket.id);
+        // Emit updated room members to remaining users
+        io.to(roomId).emit("room-members", {
+          members: roomMembers[roomId],
+          ownerId: roomOwners[roomId]
+        });
       }
 
       // Clean up pending join requests for this user
