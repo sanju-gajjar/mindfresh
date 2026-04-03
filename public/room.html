@@ -1367,18 +1367,91 @@
       font-size: 12px;
     }
 
+    /* Room Video Bar */
+    .room-video-bar {
+      background: rgba(20, 20, 32, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(68, 68, 68, 0.5);
+    }
+
+    .video-boxes {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .video-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .video-label {
+      font-size: 10px;
+      color: #ececec;
+      font-weight: 500;
+    }
+
+    .video-box video {
+      border: 1px solid rgba(68, 68, 68, 0.5);
+      border-radius: 6px;
+      transition: border-color 0.2s;
+      width: 100px;
+      height: 75px;
+    }
+
+    .video-box video.active {
+      border-color: #10a37f;
+    }
+
+    .video-close-btn {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      transition: background 0.2s;
+    }
+
+    .video-close-btn:hover {
+      background: rgba(0, 0, 0, 0.9);
+    }
+
+    .video-box {
+      position: relative;
+    }
+
     /* Responsive */
     @media (max-width: 480px) {
-      .message {
-        max-width: 100%;
+      .video-boxes {
+        gap: 4px;
       }
 
-      .header {
-        padding: 10px 14px;
+      .video-box video {
+        width: 80px;
+        height: 60px;
       }
 
-      .input-container {
-        padding: 12px 14px;
+      .video-label {
+        font-size: 9px;
+      }
+
+      .video-close-btn {
+        width: 18px;
+        height: 18px;
+        font-size: 12px;
       }
     }
   </style>
@@ -1410,11 +1483,28 @@
       <div class="header-actions">
         <button class="action-btn" onclick="openSettings()" title="Settings">⚙️</button>
         <button class="action-btn" onclick="startCall(false)">🎤 Voice</button>
-        <button class="action-btn" id="selfVideoBtn" onclick="toggleSelfVideo()">📹 Video</button>
+        <button class="action-btn" id="roomVideoBtn" onclick="toggleRoomVideo()">📹 Room Video</button>
+        <button class="action-btn" id="selfVideoBtn" onclick="toggleSelfVideo()">📹 Self Video</button>
         <!-- Self Video Preview (not a call, just your own camera) -->
         <div id="selfVideoPreview" style="display:none; position:fixed; top:16px; right:16px; width:120px; height:160px; z-index:3000; background:#111; border-radius:12px; box-shadow:0 2px 12px #0008; overflow:hidden; touch-action:none;">
           <video id="selfVideoElement" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
           <button id="closeSelfVideoBtn" style="position:absolute;top:2px;right:2px;background:#222;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:16px;z-index:2;">×</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room Video Bar (Small videos at top of chat) -->
+    <div class="room-video-bar" id="roomVideoBar" style="display: none; background: rgba(20, 20, 32, 0.95); padding: 8px 20px; border-bottom: 1px solid rgba(68, 68, 68, 0.5); backdrop-filter: blur(10px);">
+      <div class="video-boxes">
+        <div class="video-box">
+          <div class="video-label">You</div>
+          <video id="localRoomVideo" autoplay playsinline muted style="width: 120px; height: 90px; object-fit: cover; border-radius: 8px; background: #333;"></video>
+          <button class="video-close-btn" onclick="disableRoomVideo()" title="Close Room Videos">×</button>
+        </div>
+        <div class="video-box">
+          <div class="video-label" id="remoteVideoLabel">Waiting...</div>
+          <video id="remoteRoomVideo" autoplay playsinline style="width: 120px; height: 90px; object-fit: cover; border-radius: 8px; background: #333;"></video>
+          <button class="video-close-btn" onclick="disableRoomVideo()" title="Close Room Videos">×</button>
         </div>
       </div>
     </div>
@@ -1682,6 +1772,25 @@
     let ownerId = null;
     let pendingRequest = false;
 
+    // Room Video Variables
+    let roomVideoEnabled = localStorage.getItem('roomVideoEnabled') !== 'false'; // Default to true
+    let roomVideoStream = null;
+    let roomPeerConnection = null;
+    let roomDataChannel = null;
+    const roomVideoBtn = document.getElementById('roomVideoBtn');
+    const roomVideoBar = document.getElementById('roomVideoBar');
+    const localRoomVideo = document.getElementById('localRoomVideo');
+    const remoteRoomVideo = document.getElementById('remoteRoomVideo');
+    const remoteVideoLabel = document.getElementById('remoteVideoLabel');
+
+    // WebRTC configuration
+    const roomConfig = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    };
+
     document.getElementById("roomCode").innerText = roomId;
 
     // Connection handling
@@ -1689,11 +1798,20 @@
       connectionDot.classList.remove("disconnected");
       connectionText.innerText = "Connected";
       socket.emit("join-room", roomId);
+
+      // Initialize room video after connection
+      setTimeout(() => {
+        if (roomVideoEnabled) {
+          initRoomVideo();
+        }
+      }, 1000); // Small delay to ensure room join is processed
     });
 
     socket.on("disconnect", () => {
       connectionDot.classList.add("disconnected");
       connectionText.innerText = "Reconnecting...";
+      // Clean up room video on disconnect
+      stopRoomVideo();
     });
 
     socket.on("reconnect", () => {
@@ -1805,6 +1923,16 @@
       }
 
       bar.innerHTML = html;
+
+      // Handle room video when members change
+      const hasPartner = members.some(member => member.id !== socket.id && member.isOnline);
+      if (hasPartner && roomVideoEnabled && !roomPeerConnection) {
+        // Partner joined, try to start video
+        setTimeout(() => initRoomVideo(), 500);
+      } else if (!hasPartner && roomPeerConnection) {
+        // Partner left, stop video
+        stopRemoteRoomVideo();
+      }
     });
 
     function kickUser(userId) {
@@ -2425,6 +2553,47 @@
       if (el) el.remove();
     });
 
+    // Room Video Signaling
+    socket.on("room-video-ready", () => {
+      // When partner is ready, start the video call
+      if (roomVideoEnabled && roomPeerConnection) {
+        startRoomVideoCall();
+      }
+    });
+
+    socket.on("room-video-offer", async (data) => {
+      if (!roomPeerConnection) return;
+
+      try {
+        await roomPeerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await roomPeerConnection.createAnswer();
+        await roomPeerConnection.setLocalDescription(answer);
+        socket.emit('room-video-answer', { roomId, answer });
+      } catch (err) {
+        console.error('Error handling room video offer:', err);
+      }
+    });
+
+    socket.on("room-video-answer", async (data) => {
+      if (!roomPeerConnection) return;
+
+      try {
+        await roomPeerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      } catch (err) {
+        console.error('Error handling room video answer:', err);
+      }
+    });
+
+    socket.on("room-video-ice", async (data) => {
+      if (!roomPeerConnection) return;
+
+      try {
+        await roomPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } catch (err) {
+        console.error('Error adding ICE candidate:', err);
+      }
+    });
+
     // Enter to send
     document.getElementById("msg").addEventListener("keypress", (e) => {
       if (e.key === "Enter") sendMessage();
@@ -2718,6 +2887,167 @@
       }
     }
 
+    // ===== Room Video Functions (Persistent Small Videos) =====
+    async function initRoomVideo() {
+      if (!roomVideoEnabled) return;
+
+      try {
+        // More mobile-friendly video constraints
+        roomVideoStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 320, max: 640 },
+            height: { ideal: 240, max: 480 },
+            facingMode: 'user' // Use front camera
+          },
+          audio: false
+        });
+
+        localRoomVideo.srcObject = roomVideoStream;
+        localRoomVideo.classList.add('active');
+        roomVideoBar.style.display = 'block';
+
+        // Initialize WebRTC peer connection
+        createRoomPeerConnection();
+
+        // Emit that we're ready for video
+        socket.emit('room-video-ready', { roomId });
+
+      } catch (err) {
+        console.error('Could not access camera for room video:', err);
+        // Fallback: show video bar but indicate no camera
+        roomVideoBar.style.display = 'block';
+        localRoomVideo.style.display = 'none';
+        document.querySelector('.video-box:first-child .video-label').textContent = 'No Camera';
+      }
+    }
+
+    function createRoomPeerConnection() {
+      roomPeerConnection = new RTCPeerConnection(roomConfig);
+
+      // Add local stream tracks
+      if (roomVideoStream) {
+        roomVideoStream.getTracks().forEach(track => {
+          roomPeerConnection.addTrack(track, roomVideoStream);
+        });
+      }
+
+      // Handle remote stream
+      roomPeerConnection.ontrack = (event) => {
+        remoteRoomVideo.srcObject = event.streams[0];
+        remoteRoomVideo.classList.add('active');
+        remoteVideoLabel.textContent = 'Partner';
+      };
+
+      // Handle ICE candidates
+      roomPeerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('room-video-ice', { roomId, candidate: event.candidate });
+        }
+      };
+
+      // Handle connection state changes
+      roomPeerConnection.onconnectionstatechange = () => {
+        if (roomPeerConnection.connectionState === 'disconnected' || roomPeerConnection.connectionState === 'failed') {
+          stopRemoteRoomVideo();
+        }
+      };
+    }
+
+    async function startRoomVideoCall() {
+      if (!roomPeerConnection) return;
+
+      try {
+        const offer = await roomPeerConnection.createOffer();
+        await roomPeerConnection.setLocalDescription(offer);
+        socket.emit('room-video-offer', { roomId, offer });
+      } catch (err) {
+        console.error('Error creating room video offer:', err);
+      }
+    }
+
+    function stopRoomVideo() {
+      if (roomVideoStream) {
+        roomVideoStream.getTracks().forEach(track => track.stop());
+        roomVideoStream = null;
+      }
+      if (roomPeerConnection) {
+        roomPeerConnection.close();
+        roomPeerConnection = null;
+      }
+      localRoomVideo.srcObject = null;
+      stopRemoteRoomVideo();
+      roomVideoBar.style.display = 'none';
+    }
+
+    function stopRemoteRoomVideo() {
+      remoteRoomVideo.srcObject = null;
+      remoteRoomVideo.classList.remove('active');
+      remoteVideoLabel.textContent = 'Waiting...';
+    }
+
+    function toggleRoomVideo() {
+      roomVideoEnabled = !roomVideoEnabled;
+      localStorage.setItem('roomVideoEnabled', roomVideoEnabled);
+
+      if (roomVideoEnabled) {
+        initRoomVideo();
+        if (roomVideoBtn) roomVideoBtn.classList.add('active');
+      } else {
+        stopRoomVideo();
+        if (roomVideoBtn) roomVideoBtn.classList.remove('active');
+      }
+    }
+
+    function disableRoomVideo() {
+      // Same as toggleRoomVideo but forces disable
+      roomVideoEnabled = false;
+      localStorage.setItem('roomVideoEnabled', 'false');
+      stopRoomVideo();
+      if (roomVideoBtn) roomVideoBtn.classList.remove('active');
+    }
+
+    // Initialize room video button state
+    if (roomVideoBtn) {
+      if (roomVideoEnabled) {
+        roomVideoBtn.classList.add('active');
+      } else {
+        roomVideoBtn.classList.remove('active');
+      }
+    }
+
+    // ===== Self Video Functions =====
+    let selfVideoStream = null;
+    const selfVideoPreview = document.getElementById('selfVideoPreview');
+    const selfVideoElement = document.getElementById('selfVideoElement');
+    const closeSelfVideoBtn = document.getElementById('closeSelfVideoBtn');
+
+    async function toggleSelfVideo() {
+      if (selfVideoPreview.style.display === 'none') {
+        try {
+          selfVideoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          selfVideoElement.srcObject = selfVideoStream;
+          selfVideoPreview.style.display = 'block';
+          if (document.getElementById('selfVideoBtn')) document.getElementById('selfVideoBtn').classList.add('active');
+        } catch (err) {
+          alert('Could not access camera.');
+        }
+      } else {
+        stopSelfVideo();
+      }
+    }
+
+    function stopSelfVideo() {
+      if (selfVideoStream) {
+        selfVideoStream.getTracks().forEach(track => track.stop());
+        selfVideoStream = null;
+      }
+      selfVideoElement.srcObject = null;
+      selfVideoPreview.style.display = 'none';
+      if (document.getElementById('selfVideoBtn')) document.getElementById('selfVideoBtn').classList.remove('active');
+    }
+
+    if (closeSelfVideoBtn) closeSelfVideoBtn.onclick = stopSelfVideo;
+
     // ===== Chat Settings =====
     const defaultColors = {
       myBubble: '#0d7a5f',
@@ -2820,6 +3150,12 @@
 
     // Load settings on page load
     loadChatSettings();
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      stopRoomVideo();
+      stopSelfVideo();
+    });
   </script>
 
 </body>

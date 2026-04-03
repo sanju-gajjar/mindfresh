@@ -12,6 +12,25 @@ const closeSelfVideoBtn = document.getElementById('closeSelfVideoBtn');
 window.toggleSelfVideo = toggleSelfVideo;
 window.stopSelfVideo = stopSelfVideo;
 
+// --- Room Video Logic ---
+let roomVideoEnabled = localStorage.getItem('roomVideoEnabled') !== 'false'; // Default to true
+let roomVideoStream = null;
+let roomPeerConnection = null;
+let roomDataChannel = null;
+const roomVideoBtn = document.getElementById('roomVideoBtn');
+const roomVideoBar = document.getElementById('roomVideoBar');
+const localRoomVideo = document.getElementById('localRoomVideo');
+const remoteRoomVideo = document.getElementById('remoteRoomVideo');
+const remoteVideoLabel = document.getElementById('remoteVideoLabel');
+
+// WebRTC configuration
+const roomConfig = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ]
+};
+
 async function toggleSelfVideo() {
 	if (selfVideoPreview.style.display === 'none') {
 		try {
@@ -36,6 +55,115 @@ function stopSelfVideo() {
 	selfVideoPreview.style.display = 'none';
 	if (selfVideoBtn) selfVideoBtn.classList.remove('active');
 }
+
+// --- Room Video Functions ---
+async function initRoomVideo() {
+	if (!roomVideoEnabled) return;
+
+	try {
+		roomVideoStream = await navigator.mediaDevices.getUserMedia({
+			video: { width: 320, height: 240 },
+			audio: false
+		});
+
+		localRoomVideo.srcObject = roomVideoStream;
+		localRoomVideo.classList.add('active');
+		roomVideoBar.style.display = 'block';
+
+		// Initialize WebRTC peer connection
+		createRoomPeerConnection();
+
+		// Emit that we're ready for video
+		socket.emit('room-video-ready', { roomId });
+
+	} catch (err) {
+		console.error('Could not access camera for room video:', err);
+		// Fallback: show video bar but indicate no camera
+		roomVideoBar.style.display = 'block';
+		localRoomVideo.style.display = 'none';
+		document.querySelector('.video-box:first-child .video-label').textContent = 'No Camera';
+	}
+}
+
+function createRoomPeerConnection() {
+	roomPeerConnection = new RTCPeerConnection(roomConfig);
+
+	// Add local stream tracks
+	if (roomVideoStream) {
+		roomVideoStream.getTracks().forEach(track => {
+			roomPeerConnection.addTrack(track, roomVideoStream);
+		});
+	}
+
+	// Handle remote stream
+	roomPeerConnection.ontrack = (event) => {
+		remoteRoomVideo.srcObject = event.streams[0];
+		remoteRoomVideo.classList.add('active');
+		remoteVideoLabel.textContent = 'Partner';
+	};
+
+	// Handle ICE candidates
+	roomPeerConnection.onicecandidate = (event) => {
+		if (event.candidate) {
+			socket.emit('room-video-ice', { roomId, candidate: event.candidate });
+		}
+	};
+
+	// Handle connection state changes
+	roomPeerConnection.onconnectionstatechange = () => {
+		if (roomPeerConnection.connectionState === 'disconnected' || roomPeerConnection.connectionState === 'failed') {
+			stopRemoteRoomVideo();
+		}
+	};
+}
+
+async function startRoomVideoCall() {
+	if (!roomPeerConnection) return;
+
+	try {
+		const offer = await roomPeerConnection.createOffer();
+		await roomPeerConnection.setLocalDescription(offer);
+		socket.emit('room-video-offer', { roomId, offer });
+	} catch (err) {
+		console.error('Error creating room video offer:', err);
+	}
+}
+
+function stopRoomVideo() {
+	if (roomVideoStream) {
+		roomVideoStream.getTracks().forEach(track => track.stop());
+		roomVideoStream = null;
+	}
+	if (roomPeerConnection) {
+		roomPeerConnection.close();
+		roomPeerConnection = null;
+	}
+	localRoomVideo.srcObject = null;
+	stopRemoteRoomVideo();
+	roomVideoBar.style.display = 'none';
+}
+
+function stopRemoteRoomVideo() {
+	remoteRoomVideo.srcObject = null;
+	remoteRoomVideo.classList.remove('active');
+	remoteVideoLabel.textContent = 'Waiting...';
+}
+
+function toggleRoomVideo() {
+	roomVideoEnabled = !roomVideoEnabled;
+	localStorage.setItem('roomVideoEnabled', roomVideoEnabled);
+
+	if (roomVideoEnabled) {
+		initRoomVideo();
+		roomVideoBtn.classList.add('active');
+	} else {
+		stopRoomVideo();
+		roomVideoBtn.classList.remove('active');
+	}
+}
+
+// Expose to global for HTML onclick
+window.toggleRoomVideo = toggleRoomVideo;
 
 if (closeSelfVideoBtn) closeSelfVideoBtn.onclick = stopSelfVideo;
 
@@ -237,10 +365,19 @@ document.addEventListener('DOMContentLoaded', function() {
 		socket.emit("join-room", roomId);
 		await createE2EEKeyPair();
 		await sendE2EEPublicKey(socket, roomId);
+
+		// Initialize room video after connection
+		setTimeout(() => {
+			if (roomVideoEnabled) {
+				initRoomVideo();
+			}
+		}, 1000); // Small delay to ensure room join is processed
 	});
 	socket.on("disconnect", () => {
 		connectionStatus.className = "connection-status disconnected";
 		connectionStatus.title = "Disconnected - Reconnecting...";
+		// Clean up room video on disconnect
+		stopRoomVideo();
 	});
 	socket.on("reconnecting", () => {
 		connectionStatus.className = "connection-status reconnecting";
@@ -281,6 +418,16 @@ document.addEventListener('DOMContentLoaded', function() {
 			}
 		}
 		roomMembersDiv.innerHTML = html;
+
+		// Handle room video when members change
+		const hasPartner = members.some(member => member.id !== socket.id && member.isOnline);
+		if (hasPartner && roomVideoEnabled && !roomPeerConnection) {
+			// Partner joined, try to start video
+			setTimeout(() => initRoomVideo(), 500);
+		} else if (!hasPartner && roomPeerConnection) {
+			// Partner left, stop video
+			stopRemoteRoomVideo();
+		}
 	});
 
 	// E2EE public key exchange
@@ -371,6 +518,47 @@ document.addEventListener('DOMContentLoaded', function() {
 	socket.on("remove-image", (imageId) => {
 		const el = chat.querySelector(`[data-id='${imageId}']`);
 		if (el) el.remove();
+	});
+
+	// Room Video Signaling
+	socket.on("room-video-ready", () => {
+		// When partner is ready, start the video call
+		if (roomVideoEnabled && roomPeerConnection) {
+			startRoomVideoCall();
+		}
+	});
+
+	socket.on("room-video-offer", async (data) => {
+		if (!roomPeerConnection) return;
+
+		try {
+			await roomPeerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+			const answer = await roomPeerConnection.createAnswer();
+			await roomPeerConnection.setLocalDescription(answer);
+			socket.emit('room-video-answer', { roomId, answer });
+		} catch (err) {
+			console.error('Error handling room video offer:', err);
+		}
+	});
+
+	socket.on("room-video-answer", async (data) => {
+		if (!roomPeerConnection) return;
+
+		try {
+			await roomPeerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+		} catch (err) {
+			console.error('Error handling room video answer:', err);
+		}
+	});
+
+	socket.on("room-video-ice", async (data) => {
+		if (!roomPeerConnection) return;
+
+		try {
+			await roomPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+		} catch (err) {
+			console.error('Error adding ICE candidate:', err);
+		}
 	});
 	// Enter key to send
 	const msgInput = document.getElementById("msg");
@@ -525,6 +713,21 @@ document.addEventListener('DOMContentLoaded', function() {
 			}
 		}
 	}
+
+	// Initialize room video button state
+	if (roomVideoBtn) {
+		if (roomVideoEnabled) {
+			roomVideoBtn.classList.add('active');
+		} else {
+			roomVideoBtn.classList.remove('active');
+		}
+	}
+
+	// Cleanup on page unload
+	window.addEventListener('beforeunload', () => {
+		stopRoomVideo();
+		stopSelfVideo();
+	});
 });
 
 // --- Patch displayMessage and displayImage to show avatars ---

@@ -517,6 +517,23 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("call-ended");
   });
 
+  // Room Video Signaling (persistent small videos)
+  socket.on("room-video-ready", ({ roomId }) => {
+    socket.to(roomId).emit("room-video-ready");
+  });
+
+  socket.on("room-video-offer", ({ roomId, offer }) => {
+    socket.to(roomId).emit("room-video-offer", { offer });
+  });
+
+  socket.on("room-video-answer", ({ roomId, answer }) => {
+    socket.to(roomId).emit("room-video-answer", { answer });
+  });
+
+  socket.on("room-video-ice", ({ roomId, candidate }) => {
+    socket.to(roomId).emit("room-video-ice", { candidate });
+  });
+
   // Live Typing Stream - typing_start, typing_update, typing_stop
   socket.on("typing_start", ({ roomId }) => {
     const username = users[socket.id] ? users[socket.id].username : "Stranger";
