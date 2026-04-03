@@ -1853,15 +1853,15 @@
     const localMuteBtn = document.getElementById('localMuteBtn');
     const remoteMuteBtn = document.getElementById('remoteMuteBtn');
 
-    // Drag and resize state
-    let isDragging = false;
-    let isResizing = false;
-    let dragOffsetX = 0;
-    let dragOffsetY = 0;
-    let resizeStartWidth = 280;
-    let resizeStartHeight = 210;
-    let resizeStartX = 0;
-    let resizeStartY = 0;
+    // Drag and resize state for room video (use different names to avoid conflicts with YouTube player)
+    let isVideoDragging = false;
+    let isVideoResizing = false;
+    let videoDragOffsetX = 0;
+    let videoDragOffsetY = 0;
+    let videoResizeStartWidth = 280;
+    let videoResizeStartHeight = 210;
+    let videoResizeStartX = 0;
+    let videoResizeStartY = 0;
 
     // WebRTC configuration
     const roomConfig = {
@@ -3117,13 +3117,13 @@
 
     function startDrag(e) {
       e.preventDefault();
-      isDragging = true;
+      isVideoDragging = true;
 
       const touch = e.touches ? e.touches[0] : e;
       const rect = floatingPartnerVideo.getBoundingClientRect();
 
-      dragOffsetX = touch.clientX - rect.left;
-      dragOffsetY = touch.clientY - rect.top;
+      videoDragOffsetX = touch.clientX - rect.left;
+      videoDragOffsetY = touch.clientY - rect.top;
 
       document.addEventListener('mousemove', doDrag);
       document.addEventListener('touchmove', doDrag);
@@ -3132,13 +3132,13 @@
     }
 
     function doDrag(e) {
-      if (!isDragging) return;
+      if (!isVideoDragging) return;
       e.preventDefault();
 
       const touch = e.touches ? e.touches[0] : e;
 
-      let newX = touch.clientX - dragOffsetX;
-      let newY = touch.clientY - dragOffsetY;
+      let newX = touch.clientX - videoDragOffsetX;
+      let newY = touch.clientY - videoDragOffsetY;
 
       // Keep video within viewport
       const maxX = window.innerWidth - floatingPartnerVideo.offsetWidth;
@@ -3154,7 +3154,7 @@
     }
 
     function stopDrag() {
-      isDragging = false;
+      isVideoDragging = false;
       document.removeEventListener('mousemove', doDrag);
       document.removeEventListener('touchmove', doDrag);
       document.removeEventListener('mouseup', stopDrag);
@@ -3163,13 +3163,13 @@
 
     function startResize(e) {
       e.preventDefault();
-      isResizing = true;
+      isVideoResizing = true;
 
       const touch = e.touches ? e.touches[0] : e;
-      resizeStartX = touch.clientX;
-      resizeStartY = touch.clientY;
-      resizeStartWidth = floatingPartnerVideo.offsetWidth;
-      resizeStartHeight = floatingPartnerVideo.offsetHeight;
+      videoResizeStartX = touch.clientX;
+      videoResizeStartY = touch.clientY;
+      videoResizeStartWidth = floatingPartnerVideo.offsetWidth;
+      videoResizeStartHeight = floatingPartnerVideo.offsetHeight;
 
       document.addEventListener('mousemove', doResize);
       document.addEventListener('touchmove', doResize);
@@ -3178,16 +3178,16 @@
     }
 
     function doResize(e) {
-      if (!isResizing) return;
+      if (!isVideoResizing) return;
       e.preventDefault();
 
       const touch = e.touches ? e.touches[0] : e;
 
-      const deltaX = touch.clientX - resizeStartX;
-      const deltaY = touch.clientY - resizeStartY;
+      const deltaX = touch.clientX - videoResizeStartX;
+      const deltaY = touch.clientY - videoResizeStartY;
 
-      let newWidth = Math.max(200, resizeStartWidth + deltaX);
-      let newHeight = Math.max(150, resizeStartHeight + deltaY);
+      let newWidth = Math.max(200, videoResizeStartWidth + deltaX);
+      let newHeight = Math.max(150, videoResizeStartHeight + deltaY);
 
       // Max size is viewport size
       newWidth = Math.min(newWidth, window.innerWidth - 20);
@@ -3198,7 +3198,7 @@
     }
 
     function stopResize() {
-      isResizing = false;
+      isVideoResizing = false;
       document.removeEventListener('mousemove', doResize);
       document.removeEventListener('touchmove', doResize);
       document.removeEventListener('mouseup', stopResize);
@@ -3396,6 +3396,14 @@
       stopRoomVideo();
       stopSelfVideo();
     });
+
+    // Expose functions to global scope for HTML onclick handlers
+    window.toggleSelfVideo = toggleSelfVideo;
+    window.toggleRoomVideo = toggleRoomVideo;
+    window.stopSelfVideo = stopSelfVideo;
+    window.disableRoomVideo = disableRoomVideo;
+    window.toggleLocalMute = toggleLocalMute;
+    window.toggleRemoteMute = toggleRemoteMute;
   </script>
 
 </body>
