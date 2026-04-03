@@ -1,5 +1,191 @@
 // Main chat room JS (migrated from room.html)
 // Avatar, chat, and video call logic
+// --- Self Video Preview Logic ---
+
+// --- Self Video Preview Logic ---
+let selfVideoStream = null;
+const selfVideoBtn = document.getElementById('selfVideoBtn');
+const selfVideoPreview = document.getElementById('selfVideoPreview');
+const selfVideoElement = document.getElementById('selfVideoElement');
+const closeSelfVideoBtn = document.getElementById('closeSelfVideoBtn');
+// Expose to global for HTML onclick (after function definitions)
+window.toggleSelfVideo = toggleSelfVideo;
+window.stopSelfVideo = stopSelfVideo;
+
+async function toggleSelfVideo() {
+	if (selfVideoPreview.style.display === 'none') {
+		try {
+			selfVideoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+			selfVideoElement.srcObject = selfVideoStream;
+			selfVideoPreview.style.display = 'block';
+			if (selfVideoBtn) selfVideoBtn.classList.add('active');
+		} catch (err) {
+			alert('Could not access camera.');
+		}
+	} else {
+		stopSelfVideo();
+	}
+}
+
+function stopSelfVideo() {
+	if (selfVideoStream) {
+		selfVideoStream.getTracks().forEach(track => track.stop());
+		selfVideoStream = null;
+	}
+	selfVideoElement.srcObject = null;
+	selfVideoPreview.style.display = 'none';
+	if (selfVideoBtn) selfVideoBtn.classList.remove('active');
+}
+
+if (closeSelfVideoBtn) closeSelfVideoBtn.onclick = stopSelfVideo;
+
+// --- Make self video draggable (desktop & mobile) ---
+if (selfVideoPreview) {
+	let drag = false, offsetX = 0, offsetY = 0;
+	selfVideoPreview.addEventListener('mousedown', function(e) {
+		if (e.target === closeSelfVideoBtn) return;
+		drag = true;
+		offsetX = e.clientX - selfVideoPreview.getBoundingClientRect().left;
+		offsetY = e.clientY - selfVideoPreview.getBoundingClientRect().top;
+		document.body.style.userSelect = 'none';
+	});
+	document.addEventListener('mousemove', function(e) {
+		if (!drag) return;
+		selfVideoPreview.style.left = (e.clientX - offsetX) + 'px';
+		selfVideoPreview.style.top = (e.clientY - offsetY) + 'px';
+		selfVideoPreview.style.right = '';
+	});
+	document.addEventListener('mouseup', function() {
+		drag = false;
+		document.body.style.userSelect = '';
+	});
+	// Touch events for mobile
+	let touchStartX = 0, touchStartY = 0;
+	selfVideoPreview.addEventListener('touchstart', function(e) {
+		if (e.target === closeSelfVideoBtn) return;
+		drag = true;
+		const touch = e.touches[0];
+		touchStartX = touch.clientX - selfVideoPreview.getBoundingClientRect().left;
+		touchStartY = touch.clientY - selfVideoPreview.getBoundingClientRect().top;
+	});
+	document.addEventListener('touchmove', function(e) {
+		if (!drag) return;
+		const touch = e.touches[0];
+		selfVideoPreview.style.left = (touch.clientX - touchStartX) + 'px';
+		selfVideoPreview.style.top = (touch.clientY - touchStartY) + 'px';
+		selfVideoPreview.style.right = '';
+	});
+	document.addEventListener('touchend', function() {
+		drag = false;
+	});
+}
+// --- End-to-end encryption helpers ---
+let e2eeLocalKeyPair = null;
+const e2eeSharedKeys = {}; // roomId -> CryptoKey
+
+const arrayBufferToBase64 = (buffer) => {
+	let binary = '';
+	const bytes = new Uint8Array(buffer);
+	const chunkSize = 0x8000;
+	for (let i = 0; i < bytes.length; i += chunkSize) {
+		const chunk = bytes.subarray(i, i + chunkSize);
+		binary += String.fromCharCode(...chunk);
+	}
+	return btoa(binary);
+};
+
+const base64ToArrayBuffer = (base64) => {
+	const binary = atob(base64);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i++) {
+		bytes[i] = binary.charCodeAt(i);
+	}
+	return bytes.buffer;
+};
+
+async function createE2EEKeyPair() {
+	if (!window.crypto || !window.crypto.subtle) {
+		console.warn('Web Crypto API unavailable, E2EE not available.');
+		return;
+	}
+	if (e2eeLocalKeyPair) return;
+	e2eeLocalKeyPair = await crypto.subtle.generateKey(
+		{ name: 'ECDH', namedCurve: 'P-256' },
+		true,
+		['deriveKey']
+	);
+}
+
+async function sendE2EEPublicKey(socket, roomId) {
+	if (!e2eeLocalKeyPair) await createE2EEKeyPair();
+	if (!e2eeLocalKeyPair) return;
+	const rawPub = await crypto.subtle.exportKey('raw', e2eeLocalKeyPair.publicKey);
+	socket.emit('e2ee-public-key', {
+		roomId,
+		publicKey: arrayBufferToBase64(rawPub)
+	});
+}
+
+async function deriveSharedE2EEKey(remotePublicKeyBase64, roomId) {
+	if (!e2eeLocalKeyPair) await createE2EEKeyPair();
+	if (!e2eeLocalKeyPair) return;
+	const remoteRaw = base64ToArrayBuffer(remotePublicKeyBase64);
+	const remoteKey = await crypto.subtle.importKey(
+		'raw', remoteRaw,
+		{ name: 'ECDH', namedCurve: 'P-256' },
+		false,
+		[]
+	);
+	const sharedKey = await crypto.subtle.deriveKey(
+		{ name: 'ECDH', public: remoteKey },
+		e2eeLocalKeyPair.privateKey,
+		{ name: 'AES-GCM', length: 256 },
+		false,
+		['encrypt', 'decrypt']
+	);
+	e2eeSharedKeys[roomId] = sharedKey;
+	console.log('E2EE key established for room', roomId);
+}
+
+async function encryptTextForRoom(plainText, roomId) {
+	const key = e2eeSharedKeys[roomId];
+	if (!key) throw new Error('E2EE key not ready');
+	const encoder = new TextEncoder();
+	const iv = crypto.getRandomValues(new Uint8Array(12));
+	const encrypted = await crypto.subtle.encrypt(
+		{ name: 'AES-GCM', iv },
+		key,
+		encoder.encode(plainText)
+	);
+	return JSON.stringify({ iv: arrayBufferToBase64(iv), ciphertext: arrayBufferToBase64(encrypted) });
+}
+
+async function decryptTextForRoom(messagePayload, roomId) {
+	const key = e2eeSharedKeys[roomId];
+	if (!key) return null;
+	let payload;
+	try {
+		payload = typeof messagePayload === 'string' ? JSON.parse(messagePayload) : messagePayload;
+	} catch (e) {
+		return null;
+	}
+	if (!payload || !payload.iv || !payload.ciphertext) return null;
+	try {
+		const iv = new Uint8Array(base64ToArrayBuffer(payload.iv));
+		const data = base64ToArrayBuffer(payload.ciphertext);
+		const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+		return new TextDecoder().decode(decrypted);
+	} catch (e) {
+		console.warn('E2EE decryption failed', e);
+		return null;
+	}
+}
+
+async function tryDecryptIfNeeded(rawMsg, roomId) {
+	const decrypted = await decryptTextForRoom(rawMsg, roomId);
+	if (decrypted !== null) return decrypted;
+	return rawMsg;
+}
 
 // --- Avatar logic ---
 const getOrCreateUserSeed = () => {
@@ -45,10 +231,12 @@ document.addEventListener('DOMContentLoaded', function() {
 	document.getElementById("roomCode").innerText = roomId;
 
 	// Connection status handling
-	socket.on("connect", () => {
+	socket.on("connect", async () => {
 		connectionStatus.className = "connection-status";
 		connectionStatus.title = "Connected";
 		socket.emit("join-room", roomId);
+		await createE2EEKeyPair();
+		await sendE2EEPublicKey(socket, roomId);
 	});
 	socket.on("disconnect", () => {
 		connectionStatus.className = "connection-status disconnected";
@@ -68,8 +256,9 @@ document.addEventListener('DOMContentLoaded', function() {
 		window.location.href = "/";
 	});
 	// Room members handling
-	socket.on("room-members", (members) => {
+	socket.on("room-members", async (members) => {
 		const roomMembersDiv = document.getElementById("membersBar") || document.getElementById("roomMembers");
+		await sendE2EEPublicKey(socket, roomId); // re-send key on membership update to ensure current peers share it
 		let html = '<span class="members-label">Members:</span>';
 		if (members.length === 0) {
 			html += '<span class="waiting-text">Waiting for others...</span>';
@@ -93,35 +282,58 @@ document.addEventListener('DOMContentLoaded', function() {
 		}
 		roomMembersDiv.innerHTML = html;
 	});
+
+	// E2EE public key exchange
+	socket.on("e2ee-public-key", async (data) => {
+		if (!data || !data.publicKey || !data.sender) return;
+		if (data.sender === socket.id) return;
+		await deriveSharedE2EEKey(data.publicKey, roomId);
+	});
+
 	// Load message history
-	socket.on("message-history", (messages) => {
-		messages.forEach(msg => {
+	socket.on("message-history", async (messages) => {
+		for (const msg of messages) {
 			const msgId = msg.timestamp + '_' + msg.sender;
-			if (loadedMessageIds.has(msgId)) return;
+			if (loadedMessageIds.has(msgId)) continue;
 			loadedMessageIds.add(msgId);
 			if (msg.type === 'text') {
-				window.displayMessage(msg);
+				const decrypted = await tryDecryptIfNeeded(msg.message, roomId);
+				window.displayMessage({ ...msg, message: decrypted });
 			} else if (msg.type === 'image') {
 				window.displayImage(msg);
 			}
-		});
+		}
 		scrollToBottom();
 	});
 	function scrollToBottom() {
 		chat.scrollTop = chat.scrollHeight;
 	}
-	window.sendMessage = function() {
+	window.sendMessage = async function() {
 		const input = document.getElementById("msg");
 		const message = input.value.trim();
 		if (!message) return;
-		socket.emit("chat-message", { roomId, message });
+		const key = e2eeSharedKeys[roomId];
+		if (!key) {
+			alert('Secure key exchange in progress. Please wait and try again.');
+			return;
+		}
+		let encryptedMessage;
+		try {
+			encryptedMessage = await encryptTextForRoom(message, roomId);
+		} catch (e) {
+			console.error('Encryption failed', e);
+			alert('Unable to encrypt message. Please try again.');
+			return;
+		}
+		socket.emit("chat-message", { roomId, message: encryptedMessage });
 		input.value = "";
 	}
-	socket.on("chat-message", (data) => {
+	socket.on("chat-message", async (data) => {
 		const msgId = data.timestamp + '_' + data.sender;
 		if (loadedMessageIds.has(msgId)) return;
 		loadedMessageIds.add(msgId);
-		window.displayMessage(data);
+		const decrypted = await tryDecryptIfNeeded(data.message, roomId);
+		window.displayMessage({ ...data, message: decrypted });
 	});
 	window.pickImage = function() {
 		document.getElementById("imageInput").click();
@@ -262,8 +474,14 @@ document.addEventListener('DOMContentLoaded', function() {
 			input.value += emoji;
 			input.focus();
 		}
-		function sendSticker(sticker) {
-			socket.emit("chat-message", { roomId, message: sticker });
+		async function sendSticker(sticker) {
+			const key = e2eeSharedKeys[roomId];
+			if (!key) {
+				alert('Secure key exchange in progress. Please wait.');
+				return;
+			}
+			const encryptedSticker = await encryptTextForRoom(sticker, roomId);
+			socket.emit("chat-message", { roomId, message: encryptedSticker });
 			emojiPicker.classList.remove('show');
 		}
 		// Close emoji picker when clicking outside

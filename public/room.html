@@ -1410,8 +1410,12 @@
       <div class="header-actions">
         <button class="action-btn" onclick="openSettings()" title="Settings">⚙️</button>
         <button class="action-btn" onclick="startCall(false)">🎤 Voice</button>
-        <button class="action-btn" onclick="startCall(true)">📹 Video</button>
-        <button class="action-btn" id="ytShowBtn" title="YouTube Player">▶️ YouTube</button>
+        <button class="action-btn" id="selfVideoBtn" onclick="toggleSelfVideo()">📹 Video</button>
+        <!-- Self Video Preview (not a call, just your own camera) -->
+        <div id="selfVideoPreview" style="display:none; position:fixed; top:16px; right:16px; width:120px; height:160px; z-index:3000; background:#111; border-radius:12px; box-shadow:0 2px 12px #0008; overflow:hidden; touch-action:none;">
+          <video id="selfVideoElement" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+          <button id="closeSelfVideoBtn" style="position:absolute;top:2px;right:2px;background:#222;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:16px;z-index:2;">×</button>
+        </div>
       </div>
     </div>
 

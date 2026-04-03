@@ -243,60 +243,7 @@ io.on("connection", (socket) => {
     // Check if this user should be considered the owner (first person in room)
     const isEffectiveOwner = roomOwners[roomId] === socket.id;
 
-    // If room has owner and this user isn't owner or existing member, send join request
-    if (roomOwners[roomId] && !isEffectiveOwner && !existingMember && roomMembers[roomId].length > 0) {
-      // Send join request to owner (no room size limit)
-      const username = users[socket.id] ? users[socket.id].username : `User${Math.floor(Math.random() * 9999)}`;
-      const request = {
-        id: socket.id,
-        username: username,
-        timestamp: Date.now()
-      };
-
-      if (!pendingJoinRequests[roomId]) pendingJoinRequests[roomId] = [];
-
-      // Don't add duplicate requests
-      if (!pendingJoinRequests[roomId].find(r => r.id === socket.id)) {
-        pendingJoinRequests[roomId].push(request);
-
-        // Notify owner
-        const ownerSocket = io.sockets.sockets.get(roomOwners[roomId]);
-        if (ownerSocket) {
-          ownerSocket.emit("join-request", request);
-        } else {
-          // Owner socket not found - they may have disconnected
-          // Allow direct join if owner is offline
-          console.log(`Owner socket not found for room ${roomId}, allowing direct join`);
-          socket.join(roomId);
-
-          const username = users[socket.id] ? users[socket.id].username : `User${Math.floor(Math.random() * 9999)}`;
-          roomMembers[roomId].push({
-            id: socket.id,
-            username: username,
-            isOnline: true
-          });
-
-          if (users[socket.id]) {
-            users[socket.id].currentRoom = roomId;
-          }
-
-          socket.emit("room-joined", roomId);
-
-          if (roomMessages[roomId]) {
-            socket.emit("message-history", roomMessages[roomId]);
-          }
-
-          io.to(roomId).emit("room-members", {
-            members: roomMembers[roomId],
-            ownerId: roomOwners[roomId]
-          });
-          return;
-        }
-      }
-
-      socket.emit("join-request-sent", { roomId });
-      return;
-    }
+    // Direct join is allowed in this mode (no join-request gating). E2EE protects message contents.
 
     // Allow direct join for owner or first member
     socket.join(roomId);
@@ -412,6 +359,13 @@ io.on("connection", (socket) => {
     if (users[userId]) {
       users[userId].currentRoom = null;
     }
+  });
+
+  socket.on("e2ee-public-key", ({ roomId, publicKey }) => {
+    socket.to(roomId).emit("e2ee-public-key", {
+      sender: socket.id,
+      publicKey
+    });
   });
 
   socket.on("chat-message", ({ roomId, message }) => {
