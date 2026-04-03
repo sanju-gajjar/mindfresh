@@ -1433,6 +1433,39 @@
       position: relative;
     }
 
+    .video-mute-btn {
+      position: absolute;
+      bottom: 2px;
+      left: 2px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      transition: background 0.2s, transform 0.2s;
+      padding: 0;
+    }
+
+    .video-mute-btn:hover {
+      background: rgba(0, 0, 0, 0.9);
+      transform: scale(1.1);
+    }
+
+    .video-mute-btn.muted {
+      background: rgba(239, 68, 68, 0.8);
+    }
+
+    .video-mute-btn.muted:hover {
+      background: rgba(239, 68, 68, 1);
+    }
+
     /* Responsive */
     @media (max-width: 480px) {
       .video-boxes {
@@ -1451,6 +1484,12 @@
       .video-close-btn {
         width: 18px;
         height: 18px;
+        font-size: 12px;
+      }
+
+      .video-mute-btn {
+        width: 20px;
+        height: 20px;
         font-size: 12px;
       }
     }
@@ -1499,11 +1538,13 @@
         <div class="video-box">
           <div class="video-label">You</div>
           <video id="localRoomVideo" autoplay playsinline muted style="width: 120px; height: 90px; object-fit: cover; border-radius: 8px; background: #333;"></video>
+          <button class="video-mute-btn local-mute" id="localMuteBtn" onclick="toggleLocalMute()" title="Mute Mic">🎤</button>
           <button class="video-close-btn" onclick="disableRoomVideo()" title="Close Room Videos">×</button>
         </div>
         <div class="video-box">
           <div class="video-label" id="remoteVideoLabel">Waiting...</div>
           <video id="remoteRoomVideo" autoplay playsinline style="width: 120px; height: 90px; object-fit: cover; border-radius: 8px; background: #333;"></video>
+          <button class="video-mute-btn remote-mute" id="remoteMuteBtn" onclick="toggleRemoteMute()" title="Mute Partner">🔊</button>
           <button class="video-close-btn" onclick="disableRoomVideo()" title="Close Room Videos">×</button>
         </div>
       </div>
@@ -1777,11 +1818,15 @@
     let roomVideoStream = null;
     let roomPeerConnection = null;
     let roomDataChannel = null;
+    let localAudioMuted = false;
+    let remoteAudioMuted = false;
     const roomVideoBtn = document.getElementById('roomVideoBtn');
     const roomVideoBar = document.getElementById('roomVideoBar');
     const localRoomVideo = document.getElementById('localRoomVideo');
     const remoteRoomVideo = document.getElementById('remoteRoomVideo');
     const remoteVideoLabel = document.getElementById('remoteVideoLabel');
+    const localMuteBtn = document.getElementById('localMuteBtn');
+    const remoteMuteBtn = document.getElementById('remoteMuteBtn');
 
     // WebRTC configuration
     const roomConfig = {
@@ -2892,14 +2937,18 @@
       if (!roomVideoEnabled) return;
 
       try {
-        // More mobile-friendly video constraints
+        // More mobile-friendly video constraints with audio
         roomVideoStream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: { ideal: 320, max: 640 },
             height: { ideal: 240, max: 480 },
             facingMode: 'user' // Use front camera
           },
-          audio: false
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
         });
 
         localRoomVideo.srcObject = roomVideoStream;
@@ -2977,6 +3026,18 @@
       localRoomVideo.srcObject = null;
       stopRemoteRoomVideo();
       roomVideoBar.style.display = 'none';
+
+      // Reset mute states
+      localAudioMuted = false;
+      remoteAudioMuted = false;
+      if (localMuteBtn) {
+        localMuteBtn.classList.remove('muted');
+        localMuteBtn.textContent = '🎤';
+      }
+      if (remoteMuteBtn) {
+        remoteMuteBtn.classList.remove('muted');
+        remoteMuteBtn.textContent = '🔊';
+      }
     }
 
     function stopRemoteRoomVideo() {
@@ -3004,6 +3065,47 @@
       localStorage.setItem('roomVideoEnabled', 'false');
       stopRoomVideo();
       if (roomVideoBtn) roomVideoBtn.classList.remove('active');
+    }
+
+    function toggleLocalMute() {
+      if (!roomVideoStream) return;
+
+      localAudioMuted = !localAudioMuted;
+      roomVideoStream.getAudioTracks().forEach(track => {
+        track.enabled = !localAudioMuted;
+      });
+
+      // Update button appearance
+      if (localMuteBtn) {
+        if (localAudioMuted) {
+          localMuteBtn.classList.add('muted');
+          localMuteBtn.textContent = '🔇';
+        } else {
+          localMuteBtn.classList.remove('muted');
+          localMuteBtn.textContent = '🎤';
+        }
+      }
+    }
+
+    function toggleRemoteMute() {
+      remoteAudioMuted = !remoteAudioMuted;
+
+      if (remoteRoomVideo && remoteRoomVideo.srcObject) {
+        remoteRoomVideo.srcObject.getAudioTracks().forEach(track => {
+          track.enabled = !remoteAudioMuted;
+        });
+      }
+
+      // Update button appearance
+      if (remoteMuteBtn) {
+        if (remoteAudioMuted) {
+          remoteMuteBtn.classList.add('muted');
+          remoteMuteBtn.textContent = '🔇';
+        } else {
+          remoteMuteBtn.classList.remove('muted');
+          remoteMuteBtn.textContent = '🔊';
+        }
+      }
     }
 
     // Initialize room video button state
