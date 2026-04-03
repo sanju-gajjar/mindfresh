@@ -1433,6 +1433,26 @@
       position: relative;
     }
 
+    /* Floating Partner Video Styles */
+    .floating-partner-video {
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .video-drag-handle {
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .video-resize-handle {
+      touch-action: none;
+    }
+
+    .local-video-corner {
+      border: 2px solid rgba(16, 163, 127, 0.5);
+    }
+
     .video-mute-btn {
       position: absolute;
       bottom: 2px;
@@ -1532,22 +1552,24 @@
       </div>
     </div>
 
-    <!-- Room Video Bar (Small videos at top of chat) -->
-    <div class="room-video-bar" id="roomVideoBar" style="display: none; background: rgba(20, 20, 32, 0.95); padding: 8px 20px; border-bottom: 1px solid rgba(68, 68, 68, 0.5); backdrop-filter: blur(10px);">
-      <div class="video-boxes">
-        <div class="video-box">
-          <div class="video-label">You</div>
-          <video id="localRoomVideo" autoplay playsinline muted style="width: 120px; height: 90px; object-fit: cover; border-radius: 8px; background: #333;"></video>
-          <button class="video-mute-btn local-mute" id="localMuteBtn" onclick="toggleLocalMute()" title="Mute Mic">🎤</button>
-          <button class="video-close-btn" onclick="disableRoomVideo()" title="Close Room Videos">×</button>
-        </div>
-        <div class="video-box">
-          <div class="video-label" id="remoteVideoLabel">Waiting...</div>
-          <video id="remoteRoomVideo" autoplay playsinline style="width: 120px; height: 90px; object-fit: cover; border-radius: 8px; background: #333;"></video>
-          <button class="video-mute-btn remote-mute" id="remoteMuteBtn" onclick="toggleRemoteMute()" title="Mute Partner">🔊</button>
-          <button class="video-close-btn" onclick="disableRoomVideo()" title="Close Room Videos">×</button>
-        </div>
+    <!-- Floating Partner Video Window (Draggable & Resizable) -->
+    <div class="floating-partner-video" id="floatingPartnerVideo" style="display: none; position: fixed; bottom: 20px; right: 20px; width: 280px; height: 210px; z-index: 1100; background: rgba(20, 20, 32, 0.95); border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5); overflow: hidden; touch-action: none;">
+      <!-- Drag Handle -->
+      <div class="video-drag-handle" id="videoDragHandle" style="background: rgba(0, 0, 0, 0.7); padding: 8px 12px; cursor: move; display: flex; align-items: center; justify-content: space-between; color: #fff; font-size: 12px;">
+        <span id="remoteVideoLabel" style="flex: 1;">Partner Video</span>
+        <button class="video-mute-btn remote-mute" id="remoteMuteBtn" onclick="toggleRemoteMute()" title="Mute Partner" style="margin: 0 6px;">🔊</button>
+        <button class="video-close-btn" onclick="disableRoomVideo()" title="Close" style="margin: 0;">×</button>
       </div>
+      <!-- Video Container -->
+      <video id="remoteRoomVideo" autoplay playsinline style="width: 100%; height: calc(100% - 36px); object-fit: cover; background: #333;"></video>
+      <!-- Resize Handle -->
+      <div class="video-resize-handle" id="videoResizeHandle" style="position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.3) 50%); border-radius: 0 0 12px 0;"></div>
+    </div>
+
+    <!-- Local Video Corner Box -->
+    <div class="local-video-corner" id="localVideoCorner" style="display: none; position: fixed; top: 80px; right: 20px; width: 100px; height: 75px; z-index: 1000; background: rgba(20, 20, 32, 0.95); border-radius: 8px; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5); overflow: hidden;">
+      <video id="localRoomVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; background: #333;"></video>
+      <button class="video-mute-btn local-mute" id="localMuteBtn" onclick="toggleLocalMute()" title="Mute Mic" style="position: absolute; bottom: 2px; left: 2px;">🎤</button>
     </div>
 
     <!-- Members Bar -->
@@ -1821,12 +1843,25 @@
     let localAudioMuted = false;
     let remoteAudioMuted = false;
     const roomVideoBtn = document.getElementById('roomVideoBtn');
-    const roomVideoBar = document.getElementById('roomVideoBar');
+    const floatingPartnerVideo = document.getElementById('floatingPartnerVideo');
+    const localVideoCorner = document.getElementById('localVideoCorner');
+    const videoDragHandle = document.getElementById('videoDragHandle');
+    const videoResizeHandle = document.getElementById('videoResizeHandle');
     const localRoomVideo = document.getElementById('localRoomVideo');
     const remoteRoomVideo = document.getElementById('remoteRoomVideo');
     const remoteVideoLabel = document.getElementById('remoteVideoLabel');
     const localMuteBtn = document.getElementById('localMuteBtn');
     const remoteMuteBtn = document.getElementById('remoteMuteBtn');
+
+    // Drag and resize state
+    let isDragging = false;
+    let isResizing = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    let resizeStartWidth = 280;
+    let resizeStartHeight = 210;
+    let resizeStartX = 0;
+    let resizeStartY = 0;
 
     // WebRTC configuration
     const roomConfig = {
@@ -2953,7 +2988,8 @@
 
         localRoomVideo.srcObject = roomVideoStream;
         localRoomVideo.classList.add('active');
-        roomVideoBar.style.display = 'block';
+        localVideoCorner.style.display = 'block';
+        floatingPartnerVideo.style.display = 'block';
 
         // Initialize WebRTC peer connection
         createRoomPeerConnection();
@@ -2963,10 +2999,10 @@
 
       } catch (err) {
         console.error('Could not access camera for room video:', err);
-        // Fallback: show video bar but indicate no camera
-        roomVideoBar.style.display = 'block';
+        // Fallback: show video windows but indicate no camera
+        localVideoCorner.style.display = 'block';
+        floatingPartnerVideo.style.display = 'block';
         localRoomVideo.style.display = 'none';
-        document.querySelector('.video-box:first-child .video-label').textContent = 'No Camera';
       }
     }
 
@@ -3025,7 +3061,8 @@
       }
       localRoomVideo.srcObject = null;
       stopRemoteRoomVideo();
-      roomVideoBar.style.display = 'none';
+      floatingPartnerVideo.style.display = 'none';
+      localVideoCorner.style.display = 'none';
 
       // Reset mute states
       localAudioMuted = false;
@@ -3065,6 +3102,107 @@
       localStorage.setItem('roomVideoEnabled', 'false');
       stopRoomVideo();
       if (roomVideoBtn) roomVideoBtn.classList.remove('active');
+    }
+
+    // ===== Drag and Resize Handlers for Partner Video =====
+    if (videoDragHandle) {
+      videoDragHandle.addEventListener('mousedown', startDrag);
+      videoDragHandle.addEventListener('touchstart', startDrag);
+    }
+
+    if (videoResizeHandle) {
+      videoResizeHandle.addEventListener('mousedown', startResize);
+      videoResizeHandle.addEventListener('touchstart', startResize);
+    }
+
+    function startDrag(e) {
+      e.preventDefault();
+      isDragging = true;
+
+      const touch = e.touches ? e.touches[0] : e;
+      const rect = floatingPartnerVideo.getBoundingClientRect();
+
+      dragOffsetX = touch.clientX - rect.left;
+      dragOffsetY = touch.clientY - rect.top;
+
+      document.addEventListener('mousemove', doDrag);
+      document.addEventListener('touchmove', doDrag);
+      document.addEventListener('mouseup', stopDrag);
+      document.addEventListener('touchend', stopDrag);
+    }
+
+    function doDrag(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+
+      const touch = e.touches ? e.touches[0] : e;
+
+      let newX = touch.clientX - dragOffsetX;
+      let newY = touch.clientY - dragOffsetY;
+
+      // Keep video within viewport
+      const maxX = window.innerWidth - floatingPartnerVideo.offsetWidth;
+      const maxY = window.innerHeight - floatingPartnerVideo.offsetHeight;
+
+      newX = Math.max(0, Math.min(newX, maxX));
+      newY = Math.max(0, Math.min(newY, maxY));
+
+      floatingPartnerVideo.style.left = newX + 'px';
+      floatingPartnerVideo.style.top = newY + 'px';
+      floatingPartnerVideo.style.right = 'auto';
+      floatingPartnerVideo.style.bottom = 'auto';
+    }
+
+    function stopDrag() {
+      isDragging = false;
+      document.removeEventListener('mousemove', doDrag);
+      document.removeEventListener('touchmove', doDrag);
+      document.removeEventListener('mouseup', stopDrag);
+      document.removeEventListener('touchend', stopDrag);
+    }
+
+    function startResize(e) {
+      e.preventDefault();
+      isResizing = true;
+
+      const touch = e.touches ? e.touches[0] : e;
+      resizeStartX = touch.clientX;
+      resizeStartY = touch.clientY;
+      resizeStartWidth = floatingPartnerVideo.offsetWidth;
+      resizeStartHeight = floatingPartnerVideo.offsetHeight;
+
+      document.addEventListener('mousemove', doResize);
+      document.addEventListener('touchmove', doResize);
+      document.addEventListener('mouseup', stopResize);
+      document.addEventListener('touchend', stopResize);
+    }
+
+    function doResize(e) {
+      if (!isResizing) return;
+      e.preventDefault();
+
+      const touch = e.touches ? e.touches[0] : e;
+
+      const deltaX = touch.clientX - resizeStartX;
+      const deltaY = touch.clientY - resizeStartY;
+
+      let newWidth = Math.max(200, resizeStartWidth + deltaX);
+      let newHeight = Math.max(150, resizeStartHeight + deltaY);
+
+      // Max size is viewport size
+      newWidth = Math.min(newWidth, window.innerWidth - 20);
+      newHeight = Math.min(newHeight, window.innerHeight - 100);
+
+      floatingPartnerVideo.style.width = newWidth + 'px';
+      floatingPartnerVideo.style.height = newHeight + 'px';
+    }
+
+    function stopResize() {
+      isResizing = false;
+      document.removeEventListener('mousemove', doResize);
+      document.removeEventListener('touchmove', doResize);
+      document.removeEventListener('mouseup', stopResize);
+      document.removeEventListener('touchend', stopResize);
     }
 
     function toggleLocalMute() {
