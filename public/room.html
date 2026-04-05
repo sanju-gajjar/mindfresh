@@ -1544,6 +1544,7 @@
         <button class="action-btn" onclick="startCall(false)">🎤 Voice</button>
         <button class="action-btn" id="roomVideoBtn" onclick="toggleRoomVideo()">📹 Room Video</button>
         <button class="action-btn" id="selfVideoBtn" onclick="toggleSelfVideo()">📹 Self Video</button>
+        <button class="action-btn" id="screenShareBtn" onclick="toggleScreenShare()" title="Share Screen with Audio">🖥️ Share Screen</button>
         <!-- Self Video Preview (not a call, just your own camera) -->
         <div id="selfVideoPreview" style="display:none; position:fixed; top:16px; right:16px; width:120px; height:160px; z-index:3000; background:#111; border-radius:12px; box-shadow:0 2px 12px #0008; overflow:hidden; touch-action:none;">
           <video id="selfVideoElement" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
@@ -1570,6 +1571,15 @@
     <div class="local-video-corner" id="localVideoCorner" style="display: none; position: fixed; top: 80px; right: 20px; width: 100px; height: 75px; z-index: 1000; background: rgba(20, 20, 32, 0.95); border-radius: 8px; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5); overflow: hidden;">
       <video id="localRoomVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; background: #333;"></video>
       <button class="video-mute-btn local-mute" id="localMuteBtn" onclick="toggleLocalMute()" title="Mute Mic" style="position: absolute; bottom: 2px; left: 2px;">🎤</button>
+    </div>
+
+    <!-- Screen Share Display Window -->
+    <div id="screenShareWindow" style="display: none; position: fixed; top: 100px; left: 20px; width: 600px; height: 450px; z-index: 1050; background: rgba(20, 20, 32, 0.98); border-radius: 12px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6); overflow: hidden; border: 2px solid #10a37f;">
+      <div style="background: rgba(0, 0, 0, 0.7); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; color: #fff; font-size: 12px;">
+        <span id="screenShareLabel" style="flex: 1;">📺 Screen Share</span>
+        <button id="screenShareStopBtn" onclick="toggleScreenShare()" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;">Stop Sharing</button>
+      </div>
+      <video id="screenShareVideo" autoplay playsinline muted style="width: 100%; height: calc(100% - 36px); object-fit: contain; background: #000;"></video>
     </div>
 
     <!-- Members Bar -->

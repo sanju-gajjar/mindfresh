@@ -534,6 +534,25 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("room-video-ice", { candidate });
   });
 
+  // Screen Share Event Handlers
+  socket.on("screen-share-start", ({ roomId }) => {
+    const username = users[socket.id] ? users[socket.id].username : "User";
+    console.log(`${username} started screen sharing in room ${roomId}`);
+    socket.to(roomId).emit("screen-share-start", {
+      sender: socket.id,
+      username
+    });
+  });
+
+  socket.on("screen-share-stop", ({ roomId }) => {
+    const username = users[socket.id] ? users[socket.id].username : "User";
+    console.log(`${username} stopped screen sharing in room ${roomId}`);
+    socket.to(roomId).emit("screen-share-stop", {
+      sender: socket.id,
+      username
+    });
+  });
+
   // Live Typing Stream - typing_start, typing_update, typing_stop
   socket.on("typing_start", ({ roomId }) => {
     const username = users[socket.id] ? users[socket.id].username : "Stranger";

@@ -1,6 +1,9 @@
 // Main chat room JS (migrated from room.html)
 // Avatar, chat, and video call logic
-// --- Self Video Preview Logic ---
+
+// Global references to socket and roomId (set in DOMContentLoaded)
+let socket = null;
+let roomId = null;
 
 // --- Self Video Preview Logic ---
 let selfVideoStream = null;
@@ -22,6 +25,16 @@ const roomVideoBar = document.getElementById('roomVideoBar');
 const localRoomVideo = document.getElementById('localRoomVideo');
 const remoteRoomVideo = document.getElementById('remoteRoomVideo');
 const remoteVideoLabel = document.getElementById('remoteVideoLabel');
+
+// --- Screen Share Logic ---
+let screenShareActive = false;
+let screenShareStream = null;
+let screenShareAudioStream = null;
+let screenSharePeerConnection = null;
+let screenShareSender = null;
+const screenShareBtn = document.getElementById('screenShareBtn');
+const screenShareWindow = document.getElementById('screenShareWindow');
+const screenShareVideo = document.getElementById('screenShareVideo');
 
 // WebRTC configuration
 const roomConfig = {
@@ -164,6 +177,146 @@ function toggleRoomVideo() {
 
 // Expose to global for HTML onclick
 window.toggleRoomVideo = toggleRoomVideo;
+
+// --- Screen Share Functions with Audio ---
+async function toggleScreenShare() {
+	if (screenShareActive) {
+		stopScreenShare();
+	} else {
+		startScreenShare();
+	}
+}
+
+async function startScreenShare() {
+	if (!socket) {
+		alert('Connection not established. Please reload the page.');
+		return;
+	}
+
+	try {
+		// Request screen capture with audio
+		screenShareStream = await navigator.mediaDevices.getDisplayMedia({
+			video: {
+				cursor: 'always',
+				displaySurface: 'monitor'
+			},
+			audio: {
+				echoCancellation: false,
+				noiseSuppression: false,
+				autoGainControl: false
+			}
+		});
+
+		// Display screen in local window
+		screenShareVideo.srcObject = screenShareStream;
+		screenShareWindow.style.display = 'block';
+		screenShareActive = true;
+		screenShareBtn.classList.add('active');
+
+		// Add status message to chat
+		const chatArea = document.getElementById('chat');
+		const statusMsg = document.createElement('div');
+		statusMsg.style.cssText = 'text-align: center; color: #10a37f; font-size: 13px; font-style: italic; margin: 8px 0;';
+		statusMsg.textContent = '📺 You started sharing your screen';
+		chatArea.appendChild(statusMsg);
+		chatArea.scrollTop = chatArea.scrollHeight;
+
+		// Handle screen share stop by user (via browser UI)
+		screenShareStream.getTracks().forEach(track => {
+			track.onended = () => {
+				stopScreenShare();
+			};
+		});
+
+		// Notify other users that screen sharing started
+		socket.emit('screen-share-start', { roomId });
+
+		// If we have a peer connection, add screen tracks
+		if (roomPeerConnection) {
+			// Get all tracks from screen share stream
+			const videoTrack = screenShareStream.getVideoTracks()[0];
+			const audioTracks = screenShareStream.getAudioTracks();
+
+			// Replace video track
+			if (videoTrack) {
+				const videoSender = roomPeerConnection.getSenders().find(s => s.track?.kind === 'video');
+				if (videoSender) {
+					await videoSender.replaceTrack(videoTrack);
+				} else {
+					roomPeerConnection.addTrack(videoTrack, screenShareStream);
+				}
+			}
+
+			// Add audio track from screen if available
+			if (audioTracks.length > 0) {
+				const audioTrack = audioTracks[0];
+				const audioSender = roomPeerConnection.getSenders().find(s => s.track?.kind === 'audio');
+				if (audioSender) {
+					// Try to replace if possible
+					await audioSender.replaceTrack(audioTrack).catch(err => {
+						// If replace fails, add as new track
+						roomPeerConnection.addTrack(audioTrack, screenShareStream);
+					});
+				} else {
+					// Add new audio sender for screen share audio
+					roomPeerConnection.addTrack(audioTrack, screenShareStream);
+				}
+			}
+		}
+
+		console.log('Screen share started with audio');
+	} catch (err) {
+		console.error('Error starting screen share:', err);
+		if (err.name === 'NotAllowedError') {
+			alert('Screen sharing was cancelled.');
+		} else if (err.name === 'NotFoundError') {
+			alert('No screen available to share.');
+		} else {
+			alert('Could not start screen share: ' + err.message);
+		}
+	}
+}
+
+function stopScreenShare() {
+	if (screenShareStream) {
+		screenShareStream.getTracks().forEach(track => track.stop());
+		screenShareStream = null;
+	}
+
+	screenShareVideo.srcObject = null;
+	screenShareWindow.style.display = 'none';
+	screenShareActive = false;
+	screenShareBtn.classList.remove('active');
+
+	// Add status message to chat
+	const chatArea = document.getElementById('chat');
+	const statusMsg = document.createElement('div');
+	statusMsg.style.cssText = 'text-align: center; color: #8e8e8e; font-size: 13px; font-style: italic; margin: 8px 0;';
+	statusMsg.textContent = '📺 Screen sharing ended';
+	chatArea.appendChild(statusMsg);
+	chatArea.scrollTop = chatArea.scrollHeight;
+
+	// Restore camera video if it was enabled
+	if (roomVideoEnabled && roomPeerConnection && roomVideoStream) {
+		const videoTrack = roomVideoStream.getVideoTracks()[0];
+		if (videoTrack) {
+			const videoSender = roomPeerConnection.getSenders().find(s => s.track?.kind === 'video');
+			if (videoSender) {
+				videoSender.replaceTrack(videoTrack).catch(err => {
+					console.error('Error restoring camera video:', err);
+				});
+			}
+		}
+	}
+
+	// Notify other users that screen sharing stopped
+	socket.emit('screen-share-stop', { roomId });
+
+	console.log('Screen share stopped');
+}
+
+// Expose to global for HTML onclick
+window.toggleScreenShare = toggleScreenShare;
 
 if (closeSelfVideoBtn) closeSelfVideoBtn.onclick = stopSelfVideo;
 
@@ -345,14 +498,14 @@ function getUserAvatar(username, id) {
 // --- Core chat, emoji, and socket logic (restored, wrapped in DOMContentLoaded) ---
 document.addEventListener('DOMContentLoaded', function() {
 	// --- Chat/socket setup ---
-	const socket = io({
+	socket = io({
 		reconnection: true,
 		reconnectionAttempts: Infinity,
 		reconnectionDelay: 1000,
 		reconnectionDelayMax: 5000
 	});
 	const params = new URLSearchParams(window.location.search);
-	const roomId = params.get("room");
+	roomId = params.get("room");
 	const chat = document.getElementById("chat");
 	const connectionStatus = document.getElementById("connectionDot") || document.getElementById("connectionStatus");
 	let loadedMessageIds = new Set();
@@ -560,6 +713,24 @@ document.addEventListener('DOMContentLoaded', function() {
 			console.error('Error adding ICE candidate:', err);
 		}
 	});
+
+	// Screen Share Event Handlers
+	socket.on("screen-share-start", (data) => {
+		if (data.sender === socket.id) return; // Skip own event
+		console.log('Partner started screen sharing');
+		// Show notification or update UI
+		const notification = document.createElement('div');
+		notification.style.cssText = 'position: fixed; top: 100px; right: 20px; background: #10a37f; color: white; padding: 12px 20px; border-radius: 8px; z-index: 2000; font-size: 14px;';
+		notification.textContent = '📺 Partner is sharing their screen';
+		document.body.appendChild(notification);
+		setTimeout(() => notification.remove(), 3000);
+	});
+
+	socket.on("screen-share-stop", (data) => {
+		if (data.sender === socket.id) return; // Skip own event
+		console.log('Partner stopped screen sharing');
+	});
+
 	// Enter key to send
 	const msgInput = document.getElementById("msg");
 	if (msgInput) {
