@@ -208,6 +208,9 @@
 
         <div class="input-group">
           <input type="text" id="roomInput" placeholder="Enter room code..." />
+          <button class="btn btn-outline" onclick="toggleVideo()" id="videoToggleBtn" style="width: auto; padding: 12px 16px; margin: 0;">
+            Video On
+          </button>
           <button class="btn btn-secondary" onclick="joinRoom()" style="width: auto; padding: 12px 24px; margin: 0;">
             Join
           </button>
@@ -227,6 +230,10 @@
       document.getElementById('usernameInput').value = savedUsername;
     }
 
+    // Initialize video toggle
+    let videoEnabled = localStorage.getItem('roomVideoEnabled') !== 'false'; // Default to true
+    updateVideoToggleBtn();
+
     // Save username when typing
     document.getElementById('usernameInput').addEventListener('input', (e) => {
       const username = e.target.value.trim();
@@ -235,6 +242,18 @@
         socket.emit('set-username', username);
       }
     });
+
+    function updateVideoToggleBtn() {
+      const btn = document.getElementById('videoToggleBtn');
+      btn.textContent = videoEnabled ? 'Video On' : 'Video Off';
+      btn.className = videoEnabled ? 'btn btn-outline' : 'btn btn-secondary';
+    }
+
+    function toggleVideo() {
+      videoEnabled = !videoEnabled;
+      localStorage.setItem('roomVideoEnabled', videoEnabled);
+      updateVideoToggleBtn();
+    }
 
     function startStrangerChat() {
       const username = document.getElementById('usernameInput').value.trim();
