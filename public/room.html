@@ -2,10 +2,16 @@
 <html>
 
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Chat Room</title>
 
   <style>
+    html {
+      min-height: 100%;
+      background: #0b0b0f;
+      color: #ececec;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -14,12 +20,40 @@
     }
 
     body {
-      height: 100vh;
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      height: auto;
+      width: 100%;
+      margin: 0;
       background: linear-gradient(135deg, #0b0b0f 0%, #141420 50%, #0b0b0f 100%);
+      background-color: #0b0b0f;
+      background-attachment: fixed;
       background-size: 200% 200%;
       animation: breathingBackground 8s ease-in-out infinite alternate;
       display: flex;
       justify-content: center;
+      overflow-x: hidden;
+      color: #ececec;
+    }
+
+    @keyframes breathingBackground {
+      0% {
+        background-position: 0% 50%;
+      }
+
+      100% {
+        background-position: 100% 50%;
+      }
+    }
+
+    .app {
+      width: 100%;
+      max-width: 800px;
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
     }
 
     @keyframes breathingBackground {
@@ -473,6 +507,9 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
+      background: transparent;
+      min-height: 0;
+      overscroll-behavior: contain;
     }
 
     .message-group {
@@ -921,12 +958,14 @@
     /* Input Area - ChatGPT Style */
     .input-container {
       padding: 16px 20px;
-      background: rgba(20, 20, 32, 0.9);
+      background: rgba(20, 20, 32, 0.96);
       backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     }
 
     .input-area {
-      background: rgba(47, 47, 47, 0.8);
+      background: rgba(47, 47, 47, 0.92);
       border: 1px solid rgba(68, 68, 68, 0.5);
       border-radius: 24px;
       padding: 12px 16px;
@@ -934,6 +973,7 @@
       align-items: center;
       gap: 10px;
       transition: border-color 0.2s;
+      min-height: 48px;
     }
 
     .input-area:focus-within {
@@ -968,6 +1008,7 @@
       color: #ececec;
       font-size: 15px;
       outline: none;
+      min-height: 18px;
     }
 
     #msg::placeholder {
@@ -1545,10 +1586,32 @@
 <body>
 
 
-  <!-- Floating YouTube Player -->
-  <div id="ytFloatingPlayer" style="display:none;position:fixed;top:80px;left:60px;width:420px;height:320px;z-index:3000;box-shadow:0 4px 32px #000a;border-radius:16px;overflow:hidden;background:#181818;resize:both;min-width:320px;min-height:220px;">
-    <iframe id="ytPlayerFrame" src="youtube-player.html" style="width:100%;height:100%;border:none;background:#181818;" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-    <button id="ytCloseBtn" style="position:absolute;top:8px;right:8px;z-index:10;background:#222;color:#fff;border:none;border-radius:6px;padding:2px 8px;font-size:18px;cursor:pointer;">×</button>
+  <!-- Shared YouTube Player -->
+  <div id="ytSharedPlayer" style="display:none;position:fixed;top:80px;left:50%;transform:translateX(-50%);width:90vw;max-width:520px;height:60vh;max-height:420px;z-index:3000;background:#111;border:1px solid rgba(255,255,255,0.08);border-radius:18px;box-shadow:0 22px 48px rgba(0,0,0,0.35);overflow:hidden;resize:both;min-width:320px;min-height:220px;backdrop-filter:blur(10px);">
+    <div id="ytPlayerHeader" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(0,0,0,0.6);color:#fff;font-size:14px;cursor:grab;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span>▶ YouTube Watch Party</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button id="ytToggleSizeBtn" type="button" class="action-btn" style="padding:6px 10px;font-size:14px;">⤢</button>
+        <button id="ytCloseBtn" type="button" class="action-btn" style="padding:6px 10px;font-size:14px;">✕</button>
+      </div>
+    </div>
+    <div id="ytPlayerContainer" style="width:100%;height:calc(100% - 158px);background:#000;position:relative;">
+      <div id="ytPlayer" style="width:100%;height:100%;"></div>
+    </div>
+    <div style="padding:12px;display:flex;flex-direction:column;gap:10px;background:#111;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="ytPlayPauseBtn" class="action-btn" style="padding:8px 10px;min-width:72px;">Play</button>
+        <button id="ytMuteBtn" class="action-btn" style="padding:8px 10px;min-width:72px;">🔊</button>
+        <span id="ytTimeLabel" style="color:#ddd;font-size:13px;min-width:100px;">0:00 / 0:00</span>
+      </div>
+      <input id="ytSeekSlider" type="range" min="0" max="100" value="0" style="width:100%;" />
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="color:#ddd;font-size:13px;white-space:nowrap;">Vol</span>
+        <input id="ytVolumeSlider" type="range" min="0" max="100" value="80" style="flex:1;" />
+      </div>
+    </div>
   </div>
 
   <div class="app">
@@ -1789,62 +1852,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    // --- Floating YouTube Player Logic ---
-    const ytFloatingPlayer = document.getElementById('ytFloatingPlayer');
-    const ytShowBtn = document.getElementById('ytShowBtn');
-    const ytCloseBtn = document.getElementById('ytCloseBtn');
-    let isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
-
-    ytShowBtn.onclick = function() {
-      ytFloatingPlayer.style.display = 'block';
-      ytFloatingPlayer.focus();
-    };
-    ytCloseBtn.onclick = function() {
-      ytFloatingPlayer.style.display = 'none';
-    };
-
-    // Dragging logic
-    ytFloatingPlayer.addEventListener('mousedown', function(e) {
-      if (e.target !== ytFloatingPlayer && e.target !== ytPlayerFrame) return;
-      isDragging = true;
-      dragOffsetX = e.clientX - ytFloatingPlayer.offsetLeft;
-      dragOffsetY = e.clientY - ytFloatingPlayer.offsetTop;
-      ytFloatingPlayer.style.transition = 'none';
-    });
-    document.addEventListener('mousemove', function(e) {
-      if (!isDragging) return;
-      let x = e.clientX - dragOffsetX;
-      let y = e.clientY - dragOffsetY;
-      // Keep within viewport
-      x = Math.max(0, Math.min(window.innerWidth - ytFloatingPlayer.offsetWidth, x));
-      y = Math.max(0, Math.min(window.innerHeight - ytFloatingPlayer.offsetHeight, y));
-      ytFloatingPlayer.style.left = x + 'px';
-      ytFloatingPlayer.style.top = y + 'px';
-    });
-    document.addEventListener('mouseup', function() {
-      isDragging = false;
-      ytFloatingPlayer.style.transition = '';
-    });
-    // Double-click header to toggle size
-    ytFloatingPlayer.addEventListener('dblclick', function(e) {
-      if (ytFloatingPlayer.style.width !== '90vw') {
-        ytFloatingPlayer.style.width = '90vw';
-        ytFloatingPlayer.style.height = '70vh';
-        ytFloatingPlayer.style.left = '5vw';
-        ytFloatingPlayer.style.top = '10vh';
-      } else {
-        ytFloatingPlayer.style.width = '420px';
-        ytFloatingPlayer.style.height = '320px';
-        ytFloatingPlayer.style.left = '60px';
-        ytFloatingPlayer.style.top = '80px';
-      }
-    });
-    // Optional: ESC to close
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && ytFloatingPlayer.style.display === 'block') {
-        ytFloatingPlayer.style.display = 'none';
-      }
-    });
   </script>
   <script>
     const socket = io({
@@ -1898,6 +1905,22 @@
     const screenShareBtn = document.getElementById('screenShareBtn');
     const screenShareWindow = document.getElementById('screenShareWindow');
     const screenShareVideo = document.getElementById('screenShareVideo');
+
+    // YouTube Watch Party Variables
+    let ytPlayer = null;
+    let ytPlayerReady = false;
+    let ytCurrentVideoId = null;
+    let ytIsSeeking = false;
+    let ytIgnoreStateChange = false;
+    const ytShareWindow = document.getElementById('ytSharedPlayer');
+    const ytPlayerHeader = document.getElementById('ytPlayerHeader');
+    const ytPlayPauseBtn = document.getElementById('ytPlayPauseBtn');
+    const ytMuteBtn = document.getElementById('ytMuteBtn');
+    const ytCloseBtn = document.getElementById('ytCloseBtn');
+    const ytToggleSizeBtn = document.getElementById('ytToggleSizeBtn');
+    const ytSeekSlider = document.getElementById('ytSeekSlider');
+    const ytVolumeSlider = document.getElementById('ytVolumeSlider');
+    const ytTimeLabel = document.getElementById('ytTimeLabel');
 
     // Drag and resize state for room video (use different names to avoid conflicts with YouTube player)
     let isVideoDragging = false;
@@ -2157,6 +2180,175 @@
       chat.scrollTop = chat.scrollHeight;
     }
 
+    function extractYouTubeId(text) {
+      if (!text) return null;
+      const regex = /(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/;
+      const match = text.match(regex);
+      return match ? match[1] : null;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatMessageText(text) {
+      const escaped = escapeHtml(text);
+      return escaped.replace(/(https?:\/\/[^\s]+)/g, (url) => {
+        const safeUrl = url.replace(/"/g, '&quot;');
+        return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`;
+      });
+    }
+
+    function loadYouTubeAPI(callback) {
+      if (window.YT && window.YT.Player) {
+        callback();
+        return;
+      }
+      const scriptId = 'youtube-iframe-api';
+      if (document.getElementById(scriptId)) {
+        window.onYouTubeIframeAPIReady = callback;
+        return;
+      }
+      const tag = document.createElement('script');
+      tag.id = scriptId;
+      tag.src = 'https://www.youtube.com/iframe_api';
+      window.onYouTubeIframeAPIReady = () => callback();
+      document.body.appendChild(tag);
+    }
+
+    function initYouTubePlayer(videoId) {
+      ytPlayer = new YT.Player('ytPlayer', {
+        height: '100%',
+        width: '100%',
+        videoId,
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          playsinline: 1,
+          enablejsapi: 1
+        },
+        events: {
+          onReady: (event) => {
+            ytPlayerReady = true;
+            event.target.setVolume(80);
+            if (ytCurrentVideoId) {
+              event.target.loadVideoById(ytCurrentVideoId);
+            }
+            event.target.playVideo();
+            updateYouTubeUI();
+          },
+          onStateChange: onYouTubeStateChange
+        }
+      });
+    }
+
+    function onYouTubeStateChange(event) {
+      if (ytIgnoreStateChange) {
+        ytIgnoreStateChange = false;
+        return;
+      }
+      updateYouTubeUI();
+    }
+
+    function updateYouTubeUI() {
+      if (!ytPlayer || !ytPlayerReady) return;
+      const state = ytPlayer.getPlayerState();
+      ytPlayPauseBtn.innerText = state === 1 ? 'Pause' : 'Play';
+      const volume = ytPlayer.getVolume();
+      ytVolumeSlider.value = volume;
+      const current = ytPlayer.getCurrentTime() || 0;
+      const duration = ytPlayer.getDuration() || 0;
+      const progress = duration ? Math.max(0, Math.min(100, (current / duration) * 100)) : 0;
+      ytSeekSlider.value = progress;
+      ytTimeLabel.innerText = `${formatTime(current)} / ${formatTime(duration)}`;
+    }
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+      return `${mins}:${secs}`;
+    }
+
+    function applyYouTubeControl(action, value, origin = 'remote') {
+      if (!ytPlayer || !ytPlayerReady) return;
+      if (origin === 'local') ytIgnoreStateChange = true;
+      switch (action) {
+        case 'play':
+          ytPlayer.playVideo();
+          break;
+        case 'pause':
+          ytPlayer.pauseVideo();
+          break;
+        case 'seek':
+          if (typeof value === 'number') {
+            ytPlayer.seekTo(value, true);
+          }
+          break;
+        case 'volume':
+          if (typeof value === 'number') {
+            ytPlayer.setVolume(value);
+          }
+          break;
+        case 'stop':
+          closeYouTubeShare(false);
+          break;
+      }
+      updateYouTubeUI();
+    }
+
+    function syncYouTubeControl(action, value) {
+      applyYouTubeControl(action, value, 'local');
+      socket.emit('youtube-control', { roomId, action, value });
+    }
+
+    function openYouTubeShare(videoId, autoplay = true) {
+      if (!videoId) return;
+      ytCurrentVideoId = videoId;
+      ytShareWindow.style.display = 'block';
+      ytShareWindow.style.left = '50%';
+      ytShareWindow.style.transform = 'translateX(-50%)';
+      if (ytPlayer && ytPlayerReady) {
+        const activeId = ytPlayer.getVideoData().video_id;
+        if (activeId !== videoId) {
+          ytPlayer.loadVideoById(videoId);
+        } else if (autoplay) {
+          ytPlayer.playVideo();
+        }
+      } else {
+        loadYouTubeAPI(() => initYouTubePlayer(videoId));
+      }
+      updateYouTubeUI();
+    }
+
+    function closeYouTubeShare(notifyRemote = false) {
+      if (ytShareWindow) ytShareWindow.style.display = 'none';
+      if (ytPlayer && ytPlayerReady) {
+        ytPlayer.stopVideo();
+      }
+      if (notifyRemote) {
+        socket.emit('youtube-control', { roomId, action: 'stop' });
+      }
+    }
+
+    function openYouTubeShareLink(videoId) {
+      openYouTubeShare(videoId, true);
+      socket.emit('youtube-share', { roomId, videoId });
+    }
+
+    function updateYouTubeProgress() {
+      if (!ytPlayer || !ytPlayerReady || ytIsSeeking) return;
+      updateYouTubeUI();
+    }
+
+    setInterval(updateYouTubeProgress, 500);
+
     // Send message
     function sendMessage() {
       const input = document.getElementById("msg");
@@ -2165,6 +2357,11 @@
 
       // Clear typing state immediately
       clearTypingState();
+
+      const videoId = extractYouTubeId(message);
+      if (videoId) {
+        openYouTubeShareLink(videoId);
+      }
 
       socket.emit("chat-message", { roomId, message });
       input.value = "";
@@ -2272,7 +2469,22 @@
       }
 
       // Regular message
-      msgDiv.innerText = data.message;
+      msgDiv.innerHTML = formatMessageText(data.message);
+
+      const linkedVideoId = extractYouTubeId(data.message);
+      if (linkedVideoId) {
+        const watchButton = document.createElement('button');
+        watchButton.className = 'action-btn';
+        watchButton.style.marginTop = '8px';
+        watchButton.style.fontSize = '12px';
+        watchButton.style.padding = '6px 10px';
+        watchButton.innerText = '▶ Watch together';
+        watchButton.onclick = () => {
+          openYouTubeShare(linkedVideoId, true);
+          socket.emit('youtube-share', { roomId, videoId: linkedVideoId });
+        };
+        wrapper.appendChild(watchButton);
+      }
 
       // Apply emotional glow for non-whisper messages
       if (!isWhisper) {
@@ -2677,6 +2889,111 @@
     socket.on("remove-image", (imageId) => {
       const el = chat.querySelector(`[data-id='${imageId}']`);
       if (el) el.remove();
+    });
+
+    // Shared YouTube watch party events
+    socket.on('youtube-share', ({ videoId, sender }) => {
+      if (sender === socket.id) return;
+      openYouTubeShare(videoId, true);
+    });
+
+    socket.on('youtube-control', ({ action, value, sender }) => {
+      if (sender === socket.id) return;
+      applyYouTubeControl(action, value, 'remote');
+    });
+
+    if (ytPlayPauseBtn) {
+      ytPlayPauseBtn.onclick = () => {
+        if (!ytPlayer || !ytPlayerReady) return;
+        const state = ytPlayer.getPlayerState();
+        syncYouTubeControl(state === 1 ? 'pause' : 'play');
+      };
+    }
+
+    if (ytMuteBtn) {
+      ytMuteBtn.onclick = () => {
+        if (!ytPlayer || !ytPlayerReady) return;
+        if (ytPlayer.isMuted()) {
+          ytPlayer.unMute();
+          ytMuteBtn.innerText = '🔊';
+        } else {
+          ytPlayer.mute();
+          ytMuteBtn.innerText = '🔇';
+        }
+        syncYouTubeControl('volume', ytPlayer.getVolume());
+      };
+    }
+
+    if (ytSeekSlider) {
+      ytSeekSlider.addEventListener('input', () => {
+        if (!ytPlayer || !ytPlayerReady) return;
+        ytIsSeeking = true;
+        const duration = ytPlayer.getDuration() || 0;
+        const time = duration * (ytSeekSlider.value / 100);
+        ytTimeLabel.innerText = `${formatTime(time)} / ${formatTime(duration)}`;
+      });
+      ytSeekSlider.addEventListener('change', () => {
+        if (!ytPlayer || !ytPlayerReady) return;
+        const duration = ytPlayer.getDuration() || 0;
+        const time = duration * (ytSeekSlider.value / 100);
+        ytIsSeeking = false;
+        syncYouTubeControl('seek', time);
+      });
+    }
+
+    if (ytVolumeSlider) {
+      ytVolumeSlider.oninput = () => {
+        if (!ytPlayer || !ytPlayerReady) return;
+        const volume = Number(ytVolumeSlider.value);
+        syncYouTubeControl('volume', volume);
+      };
+    }
+
+    if (ytCloseBtn) {
+      ytCloseBtn.onclick = () => closeYouTubeShare(true);
+    }
+
+    if (ytToggleSizeBtn) {
+      ytToggleSizeBtn.onclick = () => {
+        if (ytShareWindow.style.width === '90vw') {
+          ytShareWindow.style.width = '520px';
+          ytShareWindow.style.height = '60vh';
+        } else {
+          ytShareWindow.style.width = '90vw';
+          ytShareWindow.style.height = '70vh';
+        }
+      };
+    }
+
+    if (ytPlayerHeader) {
+      let moving = false;
+      let moveOffsetX = 0;
+      let moveOffsetY = 0;
+      ytPlayerHeader.addEventListener('pointerdown', (event) => {
+        moving = true;
+        moveOffsetX = event.clientX - ytShareWindow.offsetLeft;
+        moveOffsetY = event.clientY - ytShareWindow.offsetTop;
+        ytShareWindow.setPointerCapture(event.pointerId);
+      });
+      ytPlayerHeader.addEventListener('pointermove', (event) => {
+        if (!moving) return;
+        let x = event.clientX - moveOffsetX;
+        let y = event.clientY - moveOffsetY;
+        x = Math.max(0, Math.min(window.innerWidth - ytShareWindow.offsetWidth, x));
+        y = Math.max(0, Math.min(window.innerHeight - ytShareWindow.offsetHeight, y));
+        ytShareWindow.style.left = `${x}px`;
+        ytShareWindow.style.top = `${y}px`;
+        ytShareWindow.style.transform = '';
+      });
+      ytPlayerHeader.addEventListener('pointerup', () => {
+        moving = false;
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && ytShareWindow.style.display === 'block') {
+        closeYouTubeShare(false);
+      }
     });
 
     // Room Video Signaling

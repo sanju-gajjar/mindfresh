@@ -553,6 +553,21 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on('youtube-share', ({ roomId, videoId }) => {
+    socket.to(roomId).emit('youtube-share', {
+      sender: socket.id,
+      videoId
+    });
+  });
+
+  socket.on('youtube-control', ({ roomId, action, value }) => {
+    socket.to(roomId).emit('youtube-control', {
+      sender: socket.id,
+      action,
+      value
+    });
+  });
+
   // Live Typing Stream - typing_start, typing_update, typing_stop
   socket.on("typing_start", ({ roomId }) => {
     const username = users[socket.id] ? users[socket.id].username : "Stranger";
