@@ -91,6 +91,7 @@
       align-items: center;
       border-bottom: 1px solid rgba(68, 68, 68, 0.5);
       backdrop-filter: blur(10px);
+      touch-action: manipulation;
     }
 
     .header-left {
@@ -174,6 +175,8 @@
       display: flex;
       align-items: center;
       gap: 6px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: rgba(255,255,255,0.08);
     }
 
     .action-btn:hover {
@@ -974,6 +977,7 @@
       gap: 10px;
       transition: border-color 0.2s;
       min-height: 48px;
+      touch-action: manipulation;
     }
 
     .input-area:focus-within {
@@ -994,6 +998,8 @@
       padding: 6px;
       border-radius: 6px;
       transition: all 0.2s;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: rgba(255,255,255,0.08);
     }
 
     .input-btn:hover {
@@ -1009,6 +1015,8 @@
       font-size: 15px;
       outline: none;
       min-height: 18px;
+      touch-action: manipulation;
+      -webkit-text-size-adjust: none;
     }
 
     #msg::placeholder {
@@ -1026,6 +1034,8 @@
       justify-content: center;
       cursor: pointer;
       transition: background 0.2s;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: rgba(255,255,255,0.08);
     }
 
     .send-btn:hover {
@@ -1635,7 +1645,7 @@
         <button class="action-btn" id="selfVideoBtn" onclick="toggleSelfVideo()">📹 Self Video</button>
         <button class="action-btn" id="screenShareBtn" onclick="toggleScreenShare()" title="Share Screen with Audio">🖥️ Share Screen</button>
         <!-- Self Video Preview (not a call, just your own camera) -->
-        <div id="selfVideoPreview" style="display:none; position:fixed; top:16px; right:16px; width:120px; height:160px; z-index:3000; background:#111; border-radius:12px; box-shadow:0 2px 12px #0008; overflow:hidden; touch-action:none;">
+        <div id="selfVideoPreview" style="display:none; position:fixed; top:calc(16px + env(safe-area-inset-top, 0px) + 50px); right:16px; width:120px; height:160px; z-index:3000; background:#111; border-radius:12px; box-shadow:0 2px 12px #0008; overflow:hidden; touch-action:none;">
           <video id="selfVideoElement" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
           <button id="closeSelfVideoBtn" style="position:absolute;top:2px;right:2px;background:#222;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:16px;z-index:2;">×</button>
         </div>
@@ -1763,7 +1773,7 @@
     </div>
 
     <!-- Mini Video PiP -->
-    <div id="miniCall" style="display:none;position:fixed;top:16px;right:16px;width:120px;height:160px;z-index:1200;background:#111;border-radius:12px;box-shadow:0 2px 12px #0008;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;cursor:pointer;">
+    <div id="miniCall" style="display:none;position:fixed;top:calc(16px + env(safe-area-inset-top, 0px) + 50px);right:16px;width:120px;height:160px;z-index:1200;background:#111;border-radius:12px;box-shadow:0 2px 12px #0008;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;cursor:pointer;">
       <video id="miniRemoteVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video>
       <div style="position:absolute;top:4px;right:4px;z-index:2;">
         <button onclick="restoreCallOverlay(event)" style="background:#222;color:#fff;border:none;border-radius:6px;padding:2px 6px;font-size:14px;cursor:pointer;">🔼</button>
