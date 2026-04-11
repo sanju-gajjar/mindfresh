@@ -1912,9 +1912,32 @@
     let screenShareAudioStream = null;
     let screenSharePeerConnection = null;
     let screenShareSender = null;
+    let screenShareVideoSender = null;
+    let screenShareAudioSender = null;
     const screenShareBtn = document.getElementById('screenShareBtn');
     const screenShareWindow = document.getElementById('screenShareWindow');
     const screenShareVideo = document.getElementById('screenShareVideo');
+
+    function isScreenShareSupported() {
+      return Boolean(navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function');
+    }
+
+    function updateScreenShareButton() {
+      if (!screenShareBtn) {
+        return;
+      }
+
+      if (!isScreenShareSupported()) {
+        screenShareBtn.disabled = true;
+        screenShareBtn.title = 'Screen sharing is not supported on this browser';
+        screenShareBtn.textContent = '🖥️ Screen Share Unavailable';
+        screenShareBtn.classList.remove('active');
+      } else {
+        screenShareBtn.disabled = false;
+        screenShareBtn.title = screenShareActive ? 'Stop sharing your screen' : 'Share Screen with Audio';
+        screenShareBtn.textContent = screenShareActive ? '🛑 Stop Sharing' : '🖥️ Share Screen';
+      }
+    }
 
     // YouTube Watch Party Variables
     let ytPlayer = null;
@@ -3479,6 +3502,12 @@
 
     // ===== Screen Share Functions =====
     async function toggleScreenShare() {
+      if (!isScreenShareSupported()) {
+        alert('Screen sharing is not supported by this browser or device.');
+        updateScreenShareButton();
+        return;
+      }
+
       if (screenShareActive) {
         stopScreenShare();
       } else {
@@ -3487,24 +3516,41 @@
     }
 
     async function startScreenShare() {
+      if (!isScreenShareSupported()) {
+        alert('Screen sharing is not supported by this browser or device.');
+        updateScreenShareButton();
+        return;
+      }
+
       if (!socket) {
         alert('Connection not established. Please reload the page.');
         return;
       }
 
       try {
-        // Request screen capture with audio
-        screenShareStream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            cursor: 'always',
-            displaySurface: 'monitor'
-          },
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
+        // Request screen capture with audio. Some mobile browsers support video-only sharing,
+        // so we fallback to video-only capture if audio constraints fail.
+        try {
+          screenShareStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              cursor: 'always',
+              displaySurface: 'monitor'
+            },
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false
+            }
+          });
+        } catch (audioErr) {
+          if (audioErr.name === 'OverconstrainedError' || audioErr.name === 'NotFoundError' || audioErr.name === 'NotReadableError' || audioErr.name === 'AbortError') {
+            screenShareStream = await navigator.mediaDevices.getDisplayMedia({
+              video: true
+            });
+          } else {
+            throw audioErr;
           }
-        });
+        }
 
         // Display screen in local window
         screenShareVideo.srcObject = screenShareStream;
@@ -3538,11 +3584,11 @@
 
           // Replace video track
           if (videoTrack) {
-            const videoSender = roomPeerConnection.getSenders().find(s => s.track?.kind === 'video');
-            if (videoSender) {
-              await videoSender.replaceTrack(videoTrack);
+            const existingVideoSender = roomPeerConnection.getSenders().find(s => s.track?.kind === 'video');
+            if (existingVideoSender) {
+              await existingVideoSender.replaceTrack(videoTrack);
             } else {
-              roomPeerConnection.addTrack(videoTrack, screenShareStream);
+              screenShareVideoSender = roomPeerConnection.addTrack(videoTrack, screenShareStream);
             }
           }
 
@@ -3554,11 +3600,11 @@
               // Try to replace if possible
               await audioSender.replaceTrack(audioTrack).catch(err => {
                 // If replace fails, add as new track
-                roomPeerConnection.addTrack(audioTrack, screenShareStream);
+                screenShareAudioSender = roomPeerConnection.addTrack(audioTrack, screenShareStream);
               });
             } else {
               // Add new audio sender for screen share audio
-              roomPeerConnection.addTrack(audioTrack, screenShareStream);
+              screenShareAudioSender = roomPeerConnection.addTrack(audioTrack, screenShareStream);
             }
           }
         }
@@ -3582,10 +3628,14 @@
         screenShareStream = null;
       }
 
-      screenShareVideo.srcObject = null;
-      screenShareWindow.style.display = 'none';
+      if (screenShareVideo) {
+        screenShareVideo.srcObject = null;
+      }
+      if (screenShareWindow) {
+        screenShareWindow.style.display = 'none';
+      }
       screenShareActive = false;
-      screenShareBtn.classList.remove('active');
+      screenShareBtn?.classList.remove('active');
 
       // Add status message to chat
       const chatArea = document.getElementById('chat');
@@ -3608,9 +3658,22 @@
         }
       }
 
-      // Notify other users that screen sharing stopped
-      socket.emit('screen-share-stop', { roomId });
+      if (roomPeerConnection && typeof roomPeerConnection.removeTrack === 'function') {
+        if (screenShareVideoSender) {
+          roomPeerConnection.removeTrack(screenShareVideoSender);
+          screenShareVideoSender = null;
+        }
+        if (screenShareAudioSender) {
+          roomPeerConnection.removeTrack(screenShareAudioSender);
+          screenShareAudioSender = null;
+        }
+      }
 
+      if (socket) {
+        socket.emit('screen-share-stop', { roomId });
+      }
+
+      updateScreenShareButton();
       console.log('Screen share stopped');
     }
 
@@ -3915,6 +3978,8 @@
     window.toggleLocalMute = toggleLocalMute;
     window.toggleRemoteMute = toggleRemoteMute;
     window.toggleScreenShare = toggleScreenShare;
+
+    updateScreenShareButton();
   </script>
 
 </body>
