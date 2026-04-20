@@ -1642,13 +1642,6 @@
         <button class="action-btn" onclick="openSettings()" title="Settings">⚙️</button>
         <button class="action-btn" onclick="startCall(false)">🎤 Voice</button>
         <button class="action-btn" id="roomVideoBtn" onclick="toggleRoomVideo()">📹 Room Video</button>
-        <button class="action-btn" id="selfVideoBtn" onclick="toggleSelfVideo()">📹 Self Video</button>
-        <button class="action-btn" id="screenShareBtn" onclick="toggleScreenShare()" title="Share Screen with Audio">🖥️ Share Screen</button>
-        <!-- Self Video Preview (not a call, just your own camera) -->
-        <div id="selfVideoPreview" style="display:none; position:fixed; top:calc(16px + env(safe-area-inset-top, 0px) + 50px); right:16px; width:120px; height:160px; z-index:3000; background:#111; border-radius:12px; box-shadow:0 2px 12px #0008; overflow:hidden; touch-action:none;">
-          <video id="selfVideoElement" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
-          <button id="closeSelfVideoBtn" style="position:absolute;top:2px;right:2px;background:#222;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:16px;z-index:2;">×</button>
-        </div>
       </div>
     </div>
 
@@ -1739,10 +1732,12 @@
         <button class="emoji-tab active" onclick="showTab('emojis')">😀 Emoji</button>
         <button class="emoji-tab" onclick="showTab('stickers')">🎉 Stickers</button>
         <button class="emoji-tab" onclick="showTab('gifs')">GIF</button>
+        <button class="emoji-tab" onclick="showTab('adult')">🔞 18+</button>
       </div>
       <div id="emojis" class="emoji-grid"></div>
       <div id="stickers" class="sticker-grid" style="display:none;"></div>
       <div id="gifs" class="gif-grid" style="display:none;"></div>
+      <div id="adultEmojis" class="emoji-grid" style="display:none;"></div>
     </div>
 
   </div>
@@ -1767,6 +1762,7 @@
       <div class="call-controls">
         <button class="control-btn mute active" id="muteBtn" onclick="toggleMute()">🎤</button>
         <button class="control-btn video-toggle" id="videoBtn" onclick="toggleVideo()">📹</button>
+        <button class="control-btn camera-switch" id="cameraSwitchBtn" onclick="switchCamera()" title="Switch Camera">🔄</button>
         <button class="control-btn end-call" onclick="endCall()">📞</button>
         <button class="control-btn" id="minimizeCallBtn" title="Minimize Call" style="background:#3a3a3a;color:white;font-size:20px;">🗕</button>
       </div>
@@ -1871,8 +1867,32 @@
       reconnectionDelayMax: 5000
     });
 
+    window.addEventListener('error', (event) => {
+      const message = event.error ? event.error.message : event.message;
+      const location = `${event.filename || ''}:${event.lineno || 0}:${event.colno || 0}`;
+      alert(`Unexpected error: ${message}\n${location}`);
+      console.error('Unhandled error:', event.error || message, event);
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      const reason = event.reason && event.reason.message ? event.reason.message : event.reason;
+      alert(`Unhandled promise rejection: ${reason}`);
+      console.error('Unhandled rejection:', event.reason);
+    });
+
+    function safe(fn, name) {
+      return function (...args) {
+        try {
+          return fn.apply(this, args);
+        } catch (err) {
+          alert(`Error in ${name}: ${err && err.message ? err.message : err}`);
+          console.error(`Error in ${name}:`, err);
+        }
+      };
+    }
+
     const params = new URLSearchParams(window.location.search);
-    const roomId = params.get("room");
+    const roomId = params.get("room") || '';
     const chat = document.getElementById("chat");
     const connectionDot = document.getElementById("connectionDot");
     const connectionText = document.getElementById("connectionText");
@@ -1975,11 +1995,31 @@
 
     document.getElementById("roomCode").innerText = roomId;
 
+    function getRequiredUsername() {
+      let username = localStorage.getItem('chatUsername');
+      if (!username || !username.trim()) {
+        username = socket.id;
+      }
+      return username;
+    }
+
     // Connection handling
-    socket.on("connect", () => {
+    socket.on("connect", safe(() => {
       connectionDot.classList.remove("disconnected");
       connectionText.innerText = "Connected";
-      socket.emit("join-room", roomId);
+
+      if (!roomId) {
+        alert('Room ID missing in URL. Please return to the home page and join/create a room again.');
+        return;
+      }
+
+      const username = getRequiredUsername();
+      if (username) {
+        localStorage.setItem('chatUsername', username);
+        socket.emit('set-username', username);
+      }
+
+      socket.emit("join-room", { roomId, username });
 
       // Initialize room video after connection
       setTimeout(() => {
@@ -1987,48 +2027,48 @@
           initRoomVideo();
         }
       }, 1000); // Small delay to ensure room join is processed
-    });
+    }, 'socket.connect'));
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", safe(() => {
       connectionDot.classList.add("disconnected");
       connectionText.innerText = "Reconnecting...";
       // Clean up room video on disconnect
       stopRoomVideo();
-    });
+    }, 'socket.disconnect'));
 
-    socket.on("reconnect", () => {
+    socket.on("reconnect", safe(() => {
       connectionDot.classList.remove("disconnected");
       connectionText.innerText = "Connected";
-    });
+    }, 'socket.reconnect'));
 
     // Room events
-    socket.on("room-joined", (rid) => {
+    socket.on("room-joined", safe((rid) => {
       pendingRequest = false;
       document.getElementById("pendingScreen").classList.remove("show");
-    });
+    }, 'socket.room-joined'));
 
-    socket.on("join-request-sent", () => {
+    socket.on("join-request-sent", safe(() => {
       pendingRequest = true;
       document.getElementById("pendingScreen").classList.add("show");
-    });
+    }, 'socket.join-request-sent'));
 
-    socket.on("join-rejected", () => {
+    socket.on("join-rejected", safe(() => {
       alert("Your join request was rejected.");
       window.location.href = "/";
-    });
+    }, 'socket.join-rejected'));
 
-    socket.on("kicked-from-room", () => {
+    socket.on("kicked-from-room", safe(() => {
       alert("You have been removed from the room by the owner.");
       window.location.href = "/";
-    });
+    }, 'socket.kicked-from-room'));
 
-    socket.on("room-full", () => {
+    socket.on("room-full", safe(() => {
       alert("This room is full (max 2 members).");
       window.location.href = "/";
-    });
+    }, 'socket.room-full'));
 
     // Join request (for owner)
-    socket.on("join-request", (request) => {
+    socket.on("join-request", safe((request) => {
       const requestsPanel = document.getElementById("joinRequests");
       const requestsList = document.getElementById("requestsList");
 
@@ -2045,7 +2085,7 @@
         </div>
       `;
       requestsList.appendChild(item);
-    });
+    }, 'socket.join-request'));
 
     function approveRequest(userId) {
       socket.emit("approve-join-request", { roomId, userId });
@@ -2068,7 +2108,7 @@
     }
 
     // Room members
-    socket.on("room-members", (data) => {
+    socket.on("room-members", safe((data) => {
       const members = data.members;
       ownerId = data.ownerId;
       isOwner = socket.id === ownerId;
@@ -2115,7 +2155,7 @@
         // Partner left, stop video
         stopRemoteRoomVideo();
       }
-    });
+    }, 'socket.room-members'));
 
     function kickUser(userId) {
       if (confirm("Are you sure you want to kick this user?")) {
@@ -2124,7 +2164,7 @@
     }
 
     // Message history
-    socket.on("message-history", (messages) => {
+    socket.on("message-history", safe((messages) => {
       messages.forEach(msg => {
         const msgId = msg.id || (msg.timestamp + '_' + msg.sender);
         if (loadedMessageIds.has(msgId)) return;
@@ -2138,10 +2178,10 @@
       });
       scrollToBottom();
       markMessagesAsRead();
-    });
+    }, 'socket.message-history'));
 
     // Chat messages
-    socket.on("chat-message", (data) => {
+    socket.on("chat-message", safe((data) => {
       const msgId = data.id || (data.timestamp + '_' + data.sender);
       if (loadedMessageIds.has(msgId)) return;
       loadedMessageIds.add(msgId);
@@ -2162,7 +2202,7 @@
       if (data.sender !== socket.id) {
         markMessagesAsRead();
       }
-    });
+    }, 'socket.chat-message'));
 
     // Message status updates
     socket.on("message-delivered", ({ messageId }) => {
@@ -3076,8 +3116,9 @@
     });
 
     // Emoji picker
-    const emojis = ['😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '🥰', '😗', '😙', '🥲', '😚', '☺️', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '🥱', '😴', '😌', '😛', '😜', '😝', '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '☹️', '🙁', '😖', '😞', '😟', '😤', '😢', '😭', '😦', '😧', '😨', '😩', '🤯', '😬', '😰', '😱', '🥵', '🥶', '😳', '🤪', '😵', '🥴', '😠', '😡', '🤬', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '😇', '🥳', '🥺', '🤠', '🤡', '🤥', '🤫', '🤭', '🧐', '🤓', '😈', '👿', '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💪', '🦾', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟'];
+    const emojis = ['😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '🥰', '😗', '😙', '🥲', '😚', '☺️', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '🥱', '😴', '😌', '😛', '😜', '😝', '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '☹️', '🙁', '😖', '😞', '😟', '😤', '😢', '😭', '😦', '😧', '😨', '😩', '🤯', '😬', '😰', '😱', '🥵', '🥶', '😳', '🤪', '😵', '🥴', '😠', '😡', '🤬', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '😇', '🥳', '🥺', '🤠', '🤡', '🤥', '🤫', '🤭', '🧐', '🤓', '😈', '👿', '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💪', '🦾', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '🔞', '🍑', '🍆', '💦', '👅', '👄', '🫦'];
     const stickers = ['🎉', '🎊', '🎈', '🎁', '🏆', '⭐', '🌟', '✨', '💫', '🔥', '💥', '💯', '🎯', '🚀', '💎', '👑', '🦄', '🐱', '🐶', '🐼', '🦊', '🦁', '🐯', '🐸', '🐵', '🙈', '🙉', '🙊', '💀', '👻', '👽', '🤖', '💩', '🎃', '🌈', '☀️', '🌙', '⚡', '❄️', '🌊', '🌸', '🌺', '🍀', '🍕', '🍔', '🍟', '🍩', '🍪', '🎂', '🍰', '☕', '🍺', '🥂', '🎵', '🎶', '🎸', '🎮', '🎲', '⚽', '🏀', '🎾', '🏈'];
+    const adultEmojis = ['🔞', '🍑', '🍆', '💦', '👅', '👄', '🫦', '🥵', '🌶️', '🍒', '🎀', '🥂'];
 
     const emojiShortcodes = {
       ':smile:': '😀', ':grin:': '😁', ':joy:': '😂', ':rofl:': '🤣', ':smiley:': '😃',
@@ -3092,6 +3133,8 @@
 
     const emojiGrid = document.getElementById('emojis');
     const stickerGrid = document.getElementById('stickers');
+    // const gifGrid = document.getElementById('gifs'); // Removed duplicate declaration
+    const adultEmojiGrid = document.getElementById('adultEmojis');
     const emojiPicker = document.getElementById('emojiPicker');
 
     emojis.forEach(emoji => {
@@ -3110,6 +3153,14 @@
       stickerGrid.appendChild(span);
     });
 
+    adultEmojis.forEach(emoji => {
+      const span = document.createElement('span');
+      span.className = 'emoji-item';
+      span.innerText = emoji;
+      span.onclick = () => insertEmoji(emoji);
+      adultEmojiGrid.appendChild(span);
+    });
+
     function toggleEmojiPicker() {
       emojiPicker.classList.toggle('show');
     }
@@ -3120,6 +3171,7 @@
       document.getElementById('emojis').style.display = tab === 'emojis' ? 'grid' : 'none';
       document.getElementById('stickers').style.display = tab === 'stickers' ? 'grid' : 'none';
       document.getElementById('gifs').style.display = tab === 'gifs' ? 'grid' : 'none';
+      document.getElementById('adultEmojis').style.display = tab === 'adult' ? 'grid' : 'none';
     }
 
     function insertEmoji(emoji) {
@@ -3165,6 +3217,7 @@
     let peerConnection = null;
     let isMuted = true;
     let isVideoOff = false;
+    let currentFacingMode = 'user';
     let pendingCallData = null;
 
     const config = {
@@ -3192,9 +3245,11 @@
         if (!withVideo) {
           document.getElementById('localVideo').style.display = 'none';
           document.getElementById('videoBtn').style.display = 'none';
+          document.getElementById('cameraSwitchBtn').style.display = 'none';
         } else {
           document.getElementById('localVideo').style.display = 'block';
           document.getElementById('videoBtn').style.display = 'flex';
+          document.getElementById('cameraSwitchBtn').style.display = 'flex';
         }
 
         createPeerConnection();
@@ -3262,9 +3317,11 @@
         if (!data.isVideoCall) {
           document.getElementById('localVideo').style.display = 'none';
           document.getElementById('videoBtn').style.display = 'none';
+          document.getElementById('cameraSwitchBtn').style.display = 'none';
         } else {
           document.getElementById('localVideo').style.display = 'block';
           document.getElementById('videoBtn').style.display = 'flex';
+          document.getElementById('cameraSwitchBtn').style.display = 'flex';
         }
 
         createPeerConnection();
@@ -3319,6 +3376,43 @@
         isVideoOff = !isVideoOff;
         localStream.getVideoTracks().forEach(track => track.enabled = !isVideoOff);
         document.getElementById('videoBtn').classList.toggle('active', isVideoOff);
+        document.getElementById('cameraSwitchBtn').style.display = isVideoOff ? 'none' : 'flex';
+      }
+    }
+
+    async function switchCamera() {
+      if (!localStream) return;
+      const newFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: newFacingMode } },
+          audio: false
+        });
+        const newTrack = newStream.getVideoTracks()[0];
+        if (!newTrack) throw new Error('No video track available');
+
+        const oldTrack = localStream.getVideoTracks()[0];
+        if (oldTrack) {
+          localStream.removeTrack(oldTrack);
+          oldTrack.stop();
+        }
+
+        localStream.addTrack(newTrack);
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+          localVideo.srcObject = null;
+          localVideo.srcObject = localStream;
+        }
+
+        if (peerConnection) {
+          const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (sender) await sender.replaceTrack(newTrack);
+        }
+
+        currentFacingMode = newFacingMode;
+      } catch (err) {
+        console.warn('Could not switch camera:', err);
+        alert('Unable to switch camera on this device.');
       }
     }
 
@@ -3828,39 +3922,6 @@
       }
     }
 
-    // ===== Self Video Functions =====
-    let selfVideoStream = null;
-    const selfVideoPreview = document.getElementById('selfVideoPreview');
-    const selfVideoElement = document.getElementById('selfVideoElement');
-    const closeSelfVideoBtn = document.getElementById('closeSelfVideoBtn');
-
-    async function toggleSelfVideo() {
-      if (selfVideoPreview.style.display === 'none') {
-        try {
-          selfVideoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-          selfVideoElement.srcObject = selfVideoStream;
-          selfVideoPreview.style.display = 'block';
-          if (document.getElementById('selfVideoBtn')) document.getElementById('selfVideoBtn').classList.add('active');
-        } catch (err) {
-          alert('Could not access camera.');
-        }
-      } else {
-        stopSelfVideo();
-      }
-    }
-
-    function stopSelfVideo() {
-      if (selfVideoStream) {
-        selfVideoStream.getTracks().forEach(track => track.stop());
-        selfVideoStream = null;
-      }
-      selfVideoElement.srcObject = null;
-      selfVideoPreview.style.display = 'none';
-      if (document.getElementById('selfVideoBtn')) document.getElementById('selfVideoBtn').classList.remove('active');
-    }
-
-    if (closeSelfVideoBtn) closeSelfVideoBtn.onclick = stopSelfVideo;
-
     // ===== Chat Settings =====
     const defaultColors = {
       myBubble: '#0d7a5f',
@@ -3882,8 +3943,15 @@
     function loadChatSettings() {
       const saved = localStorage.getItem('chatSettings');
       if (saved) {
-        const settings = JSON.parse(saved);
-        applyColors(settings);
+        try {
+          const settings = JSON.parse(saved);
+          applyColors(settings);
+        } catch (err) {
+          console.warn('Invalid saved chat settings, resetting to defaults.', err);
+          applyColors(defaultColors);
+        }
+      } else {
+        applyColors(defaultColors);
       }
     }
 
@@ -3967,17 +4035,34 @@
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
       stopRoomVideo();
-      stopSelfVideo();
     });
 
     // Expose functions to global scope for HTML onclick handlers
-    window.toggleSelfVideo = toggleSelfVideo;
-    window.toggleRoomVideo = toggleRoomVideo;
-    window.stopSelfVideo = stopSelfVideo;
-    window.disableRoomVideo = disableRoomVideo;
-    window.toggleLocalMute = toggleLocalMute;
-    window.toggleRemoteMute = toggleRemoteMute;
-    window.toggleScreenShare = toggleScreenShare;
+    window.openSettings = safe(openSettings, 'openSettings');
+    window.startCall = safe(startCall, 'startCall');
+    window.toggleRoomVideo = safe(toggleRoomVideo, 'toggleRoomVideo');
+    window.disableRoomVideo = safe(disableRoomVideo, 'disableRoomVideo');
+    window.toggleMute = safe(toggleMute, 'toggleMute');
+    window.toggleVideo = safe(toggleVideo, 'toggleVideo');
+    window.switchCamera = safe(switchCamera, 'switchCamera');
+    window.rejectIncomingCall = safe(rejectIncomingCall, 'rejectIncomingCall');
+    window.acceptIncomingCall = safe(acceptIncomingCall, 'acceptIncomingCall');
+    window.approveRequest = safe(approveRequest, 'approveRequest');
+    window.rejectRequest = safe(rejectRequest, 'rejectRequest');
+    window.kickUser = safe(kickUser, 'kickUser');
+    window.cancelJoinRequest = safe(cancelJoinRequest, 'cancelJoinRequest');
+    window.restoreCallOverlay = safe(restoreCallOverlay, 'restoreCallOverlay');
+    window.sendMessage = safe(sendMessage, 'sendMessage');
+    window.pickImage = safe(pickImage, 'pickImage');
+    window.toggleEmojiPicker = safe(toggleEmojiPicker, 'toggleEmojiPicker');
+    window.showTab = safe(showTab, 'showTab');
+    window.insertEmoji = safe(insertEmoji, 'insertEmoji');
+    window.toggleLocalMute = safe(toggleLocalMute, 'toggleLocalMute');
+    window.toggleRemoteMute = safe(toggleRemoteMute, 'toggleRemoteMute');
+    window.toggleScreenShare = safe(toggleScreenShare, 'toggleScreenShare');
+    window.resetToDefaults = safe(resetToDefaults, 'resetToDefaults');
+    window.applySettingsFromForm = safe(applySettingsFromForm, 'applySettingsFromForm');
+    window.closeSettings = safe(closeSettings, 'closeSettings');
 
     updateScreenShareButton();
   </script>

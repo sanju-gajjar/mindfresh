@@ -223,7 +223,15 @@ io.on("connection", (socket) => {
     socket.emit("room-created", roomId);
   });
 
-  socket.on("join-room", (roomId) => {
+  socket.on("join-room", (payload) => {
+    const roomId = typeof payload === 'object' && payload !== null ? payload.roomId : payload;
+    const usernameFromClient = typeof payload === 'object' && payload !== null ? payload.username : undefined;
+    if (!roomId) return;
+
+    if (usernameFromClient && users[socket.id]) {
+      users[socket.id].username = usernameFromClient;
+    }
+
     // If room doesn't exist → create it automatically (first person becomes owner)
     if (!rooms[roomId]) {
       rooms[roomId] = true;
@@ -240,12 +248,8 @@ io.on("connection", (socket) => {
       roomOwners[roomId] = socket.id; // Update owner to current socket
     }
 
-    // Check if this user should be considered the owner (first person in room)
-    const isEffectiveOwner = roomOwners[roomId] === socket.id;
-
     // Direct join is allowed in this mode (no join-request gating). E2EE protects message contents.
 
-    // Allow direct join for owner or first member
     socket.join(roomId);
 
     // Add user to room members if not already there
