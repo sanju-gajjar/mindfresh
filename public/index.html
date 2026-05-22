@@ -6,199 +6,171 @@
   <title>MindFresh Chat</title>
 
   <style>
+    :root {
+      color-scheme: dark;
+      color: #f5f5f5;
+      background: #000;
+    }
+
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
     body {
-      height: 100vh;
+      min-height: 100vh;
+      width: 100%;
       background: #000;
+      color: #f5f5f5;
       display: flex;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
+      padding: 16px;
     }
 
     .container {
       width: 100%;
-      max-width: 420px;
-      padding: 20px;
+      max-width: 400px;
     }
 
     .card {
-      background: #1a1a1a;
-      border-radius: 20px;
-      padding: 40px 30px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      width: 100%;
+      background: #000;
+      border: 1px solid #1a1a1a;
+      border-radius: 16px;
+      padding: 32px 24px;
     }
 
     h1 {
+      font-size: 28px;
+      font-weight: 700;
       text-align: center;
       color: #fff;
-      margin-bottom: 10px;
-      font-size: 32px;
+      margin-bottom: 8px;
+      letter-spacing: 0.02em;
     }
 
     .subtitle {
       text-align: center;
-      color: #aaa;
-      margin-bottom: 40px;
-      font-size: 14px;
+      color: #888;
+      margin-bottom: 32px;
+      font-size: 13px;
+      line-height: 1.5;
     }
 
     .section {
-      margin-bottom: 30px;
+      margin-bottom: 20px;
     }
 
     .section-title {
-      font-size: 12px;
-      color: #888;
+      display: block;
+      margin-bottom: 8px;
+      color: #666;
+      font-size: 11px;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 12px;
-      font-weight: 600;
-    }
-
-    .btn {
-      width: 100%;
-      padding: 16px;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-      margin-bottom: 12px;
-    }
-
-    .btn:active {
-      transform: scale(0.98);
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #e74a3b, #d63384);
-      color: white;
-      box-shadow: 0 4px 15px rgba(231, 74, 59, 0.4);
-    }
-
-    .btn-primary:hover {
-      box-shadow: 0 6px 20px rgba(231, 74, 59, 0.5);
-    }
-
-    .btn-secondary {
-      background: #4e73df;
-      color: white;
-    }
-
-    .btn-outline {
-      background: white;
-      color: #4e73df;
-      border: 2px solid #4e73df;
-    }
-
-    .input-group {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
+      font-weight: 500;
     }
 
     input[type="text"] {
-      flex: 1;
-      padding: 12px 16px;
-      border: 2px solid #333;
+      width: 100%;
+      padding: 12px 14px;
       border-radius: 10px;
-      font-size: 14px;
-      transition: border 0.3s;
-      background: #2a2a2a;
-      color: #fff;
+      border: 1px solid #333;
+      background: #111;
+      color: #f5f5f5;
+      font-size: 13px;
+      transition: border-color 0.2s ease;
     }
 
     input[type="text"]::placeholder {
-      color: #888;
+      color: #666;
     }
 
     input[type="text"]:focus {
       outline: none;
-      border-color: #4e73df;
+      border-color: #555;
+      background: #121212;
     }
 
-    .divider {
-      text-align: center;
-      margin: 30px 0;
-      color: #666;
-      position: relative;
+    .btn {
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #111;
+      color: #f5f5f5;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      width: 100%;
     }
 
-    .divider::before,
-    .divider::after {
-      content: "";
-      position: absolute;
-      top: 50%;
-      width: 40%;
-      height: 1px;
-      background: #333;
+    .btn:hover {
+      background: #1a1a1a;
+      border-color: #444;
     }
 
-    .divider::before {
-      left: 0;
+    .btn:active {
+      background: #252525;
     }
 
-    .divider::after {
-      right: 0;
+    .input-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-group input {
+      flex: 1;
+    }
+
+    .input-group .btn {
+      width: auto;
+      padding: 12px 16px;
+    }
+
+    .feature-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 20px;
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 10px;
+      margin-top: 20px;
     }
 
     .feature {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 15px;
+      gap: 8px;
+      align-items: flex-start;
+      font-size: 12px;
       color: #aaa;
-      font-size: 13px;
+      line-height: 1.4;
     }
 
     .feature-icon {
-      width: 24px;
-      height: 24px;
-      background: #333;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
+      font-size: 14px;
+      flex-shrink: 0;
     }
 
-    @media (max-width: 480px) {
-      .container {
-        padding: 15px;
-      }
-
+    @media (max-width: 520px) {
       .card {
-        padding: 30px 20px;
+        padding: 24px 18px;
       }
 
       h1 {
-        font-size: 28px;
-      }
-
-      .btn {
-        padding: 14px;
-        font-size: 15px;
+        font-size: 24px;
       }
 
       .input-group {
         flex-direction: column;
-        gap: 8px;
       }
 
-      .input-group button {
+      .input-group .btn {
         width: 100%;
-        padding: 14px;
-      }
-
-      input[type="text"] {
-        padding: 14px;
       }
     }
   </style>
@@ -209,47 +181,35 @@
   <div class="container">
     <div class="card">
       <h1>MindFresh</h1>
-      <p class="subtitle">Connect instantly with people around the world</p>
+      <p class="subtitle">Connect with anyone, instantly</p>
 
       <div class="section">
-        <div class="section-title">👤 Your Username</div>
-        <input type="text" id="usernameInput" placeholder="Enter your name..." style="width: 100%; margin-bottom: 20px;" />
+        <div class="section-title">Username (optional)</div>
+        <input type="text" id="usernameInput" placeholder="Choose a name..." />
       </div>
 
       <div class="section">
-        <div class="section-title">🎲 Random Chat</div>
-        <button class="btn btn-primary" onclick="startStrangerChat()">
-          Chat with Random Stranger
-        </button>
-        <div class="feature">
-          <div class="feature-icon">⚡</div>
-          <span>Instant anonymous connections</span>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">⏭️</div>
-          <span>Skip to next stranger anytime</span>
-        </div>
-      </div>
-
-      <div class="divider">OR</div>
-
-      <div class="section">
-        <div class="section-title">🏠 Private Rooms</div>
-        <button class="btn btn-secondary" onclick="createRoom()">
-          Create New Room
-        </button>
-
+        <div class="section-title">Join Room</div>
         <div class="input-group">
           <input type="text" id="roomInput" placeholder="Enter room code..." />
-          <button class="btn btn-outline" onclick="toggleVideo()" id="videoToggleBtn" style="width: auto; padding: 12px 16px; margin: 0;">
-            Video On
-          </button>
-          <button class="btn btn-secondary" onclick="joinRoom()" style="width: auto; padding: 12px 24px; margin: 0;">
-            Join
-          </button>
+          <button class="btn" onclick="joinRoom()">Join</button>
         </div>
       </div>
 
+      <div class="feature-list">
+        <div class="feature">
+          <span class="feature-icon">✓</span>
+          <span>Real-time video and audio</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">✓</span>
+          <span>Share images and messages</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">✓</span>
+          <span>End-to-end communication</span>
+        </div>
+      </div>
     </div>
   </div>
 

@@ -12,7 +12,7 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 const rooms = {};
-const roomMembers = {}; // Track members per room (max 2)
+const roomMembers = {}; // Track members per room
 const roomMessages = {}; // Store messages per room
 const users = {}; // Store connected users
 const waitingUsers = []; // Queue for stranger matching
@@ -21,6 +21,65 @@ const roomOwners = {}; // Track room creators
 const pendingJoinRequests = {}; // Track pending join requests per room
 const messageStatus = {}; // Track message delivery/read status
 const typingState = {}; // Track typing state per user
+
+function getRoomMembers(roomId) {
+  return roomMembers[roomId] || [];
+}
+
+function getNextDeterministicUsername(roomId) {
+  const members = getRoomMembers(roomId);
+  let index = 1;
+  while (members.some(member => member.username && member.username.toLowerCase() === `user${index}`)) {
+    index += 1;
+  }
+  return `user${index}`;
+}
+
+function assignRoomUsername(roomId, desiredUsername) {
+  const members = getRoomMembers(roomId);
+  const raw = typeof desiredUsername === 'string' ? desiredUsername.trim() : '';
+  const normalized = raw.toLowerCase();
+
+  if (normalized === 'admin') {
+    const alreadyAdmin = members.some(member => member.username.toLowerCase() === 'admin');
+    if (!alreadyAdmin) {
+      return { username: 'admin', role: 'admin' };
+    }
+  }
+
+  if (raw) {
+    const duplicate = members.some(member => member.username.toLowerCase() === normalized);
+    if (!duplicate) {
+      return { username: raw, role: 'user' };
+    }
+  }
+
+  return { username: getNextDeterministicUsername(roomId), role: 'user' };
+}
+
+function getParticipant(roomId, socketId) {
+  return getRoomMembers(roomId).find(member => member.id === socketId);
+}
+
+function emitRoomState(roomId) {
+  const members = getRoomMembers(roomId);
+  io.to(roomId).emit('room-state', {
+    participants: members,
+    ownerId: roomOwners[roomId]
+  });
+  io.to(roomId).emit('room-members', {
+    members,
+    ownerId: roomOwners[roomId]
+  });
+}
+
+function emitParticipantUpdated(roomId, participant) {
+  io.to(roomId).emit('participant-updated', { participant });
+}
+
+function emitParticipantLeft(roomId, socketId) {
+  io.to(roomId).emit('participant-left', { socketId });
+}
 
 // Bot configuration
 const botGreetings = [
@@ -104,17 +163,19 @@ io.on("connection", (socket) => {
   // Initialize user
   users[socket.id] = {
     id: socket.id,
-    username: `User${Math.floor(Math.random() * 9999)}`,
+    desiredUsername: null,
     inStrangerChat: false,
-    partnerId: null
+    partnerId: null,
+    currentRoom: null
   };
 
-  socket.emit("user-info", users[socket.id]);
+  socket.emit('user-info', users[socket.id]);
 
-  socket.on("set-username", (username) => {
+  socket.on('set-username', (username) => {
     if (users[socket.id]) {
+      users[socket.id].desiredUsername = username;
       users[socket.id].username = username;
-      socket.emit("user-info", users[socket.id]);
+      socket.emit('user-info', users[socket.id]);
     }
   });
 
@@ -223,13 +284,15 @@ io.on("connection", (socket) => {
     socket.emit("room-created", roomId);
   });
 
-  socket.on("join-room", (payload) => {
+  socket.on('join-room', (payload) => {
     const roomId = typeof payload === 'object' && payload !== null ? payload.roomId : payload;
     const usernameFromClient = typeof payload === 'object' && payload !== null ? payload.username : undefined;
     if (!roomId) return;
 
-    if (usernameFromClient && users[socket.id]) {
-      users[socket.id].username = usernameFromClient;
+    const desiredUsername = usernameFromClient || (users[socket.id] ? users[socket.id].desiredUsername : undefined);
+    if (desiredUsername && users[socket.id]) {
+      users[socket.id].desiredUsername = desiredUsername;
+      users[socket.id].username = desiredUsername;
     }
 
     // If room doesn't exist → create it automatically (first person becomes owner)
@@ -240,51 +303,52 @@ io.on("connection", (socket) => {
       pendingJoinRequests[roomId] = [];
     }
 
-    const isOwner = roomOwners[roomId] === socket.id;
-    const existingMember = roomMembers[roomId]?.find(m => m.id === socket.id);
-
-    // If room has no members yet, this user becomes the owner (handles page navigation after create-room)
+    // If room has no members yet, this user becomes the owner.
     if (roomMembers[roomId].length === 0) {
-      roomOwners[roomId] = socket.id; // Update owner to current socket
+      roomOwners[roomId] = socket.id;
     }
-
-    // Direct join is allowed in this mode (no join-request gating). E2EE protects message contents.
 
     socket.join(roomId);
 
-    // Add user to room members if not already there
-    const username = users[socket.id] ? users[socket.id].username : `User${Math.floor(Math.random() * 9999)}`;
+    const { username, role } = assignRoomUsername(roomId, desiredUsername);
     const existingMemberIndex = roomMembers[roomId].findIndex(m => m.id === socket.id);
 
     if (existingMemberIndex === -1) {
       roomMembers[roomId].push({
         id: socket.id,
-        username: username,
-        isOnline: true
+        username,
+        role,
+        isAdmin: role === 'admin',
+        isOnline: true,
+        videoEnabled: false,
+        audioEnabled: false
       });
     } else {
-      roomMembers[roomId][existingMemberIndex].isOnline = true;
+      roomMembers[roomId][existingMemberIndex] = {
+        ...roomMembers[roomId][existingMemberIndex],
+        username,
+        role,
+        isAdmin: role === 'admin',
+        isOnline: true
+      };
     }
 
-    // Store the roomId in user data
     if (users[socket.id]) {
       users[socket.id].currentRoom = roomId;
     }
 
-    socket.emit("room-joined", roomId);
+    socket.emit('room-joined', roomId);
 
-    // Send existing messages to the user
     if (roomMessages[roomId]) {
-      socket.emit("message-history", roomMessages[roomId]);
+      socket.emit('message-history', roomMessages[roomId]);
     }
 
-    // Emit room members to all users in the room
-    io.to(roomId).emit("room-members", {
-      members: roomMembers[roomId],
-      ownerId: roomOwners[roomId]
-    });
-
-    socket.to(roomId).emit("user-joined", socket.id);
+    emitRoomState(roomId);
+    const participant = getParticipant(roomId, socket.id);
+    if (participant) {
+      io.to(roomId).emit('participant-joined', { participant });
+    }
+    socket.to(roomId).emit('user-joined', socket.id);
   });
 
   // Handle join request approval
@@ -343,21 +407,19 @@ io.on("connection", (socket) => {
   });
 
   // Handle kick user
-  socket.on("kick-user", ({ roomId, userId }) => {
+  socket.on('kick-user', ({ roomId, userId }) => {
     if (roomOwners[roomId] !== socket.id) return;
 
     const userSocket = io.sockets.sockets.get(userId);
     if (userSocket) {
       userSocket.leave(roomId);
-      userSocket.emit("kicked-from-room", { roomId });
+      userSocket.emit('kicked-from-room', { roomId });
     }
 
     if (roomMembers[roomId]) {
       roomMembers[roomId] = roomMembers[roomId].filter(m => m.id !== userId);
-      io.to(roomId).emit("room-members", {
-        members: roomMembers[roomId],
-        ownerId: roomOwners[roomId]
-      });
+      emitParticipantLeft(roomId, userId);
+      emitRoomState(roomId);
     }
 
     if (users[userId]) {
@@ -365,7 +427,59 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("e2ee-public-key", ({ roomId, publicKey }) => {
+  socket.on('toggle-audio', ({ roomId, enabled }) => {
+    const participant = getParticipant(roomId, socket.id);
+    if (!participant) return;
+
+    participant.audioEnabled = Boolean(enabled);
+    emitParticipantUpdated(roomId, participant);
+    emitRoomState(roomId);
+  });
+
+  socket.on('toggle-video', ({ roomId, enabled }) => {
+    const participant = getParticipant(roomId, socket.id);
+    if (!participant) return;
+
+    participant.videoEnabled = Boolean(enabled);
+    emitParticipantUpdated(roomId, participant);
+    emitRoomState(roomId);
+  });
+
+  socket.on('admin-force-audio', ({ roomId, userId, enabled }) => {
+    const sender = getParticipant(roomId, socket.id);
+    if (!sender || sender.role !== 'admin') return;
+
+    const participant = getParticipant(roomId, userId);
+    if (!participant) return;
+
+    participant.audioEnabled = Boolean(enabled);
+    emitParticipantUpdated(roomId, participant);
+    emitRoomState(roomId);
+
+    const targetSocket = io.sockets.sockets.get(userId);
+    if (targetSocket) {
+      targetSocket.emit('admin-force-audio', { enabled });
+    }
+  });
+
+  socket.on('admin-force-video', ({ roomId, userId, enabled }) => {
+    const sender = getParticipant(roomId, socket.id);
+    if (!sender || sender.role !== 'admin') return;
+
+    const participant = getParticipant(roomId, userId);
+    if (!participant) return;
+
+    participant.videoEnabled = Boolean(enabled);
+    emitParticipantUpdated(roomId, participant);
+    emitRoomState(roomId);
+
+    const targetSocket = io.sockets.sockets.get(userId);
+    if (targetSocket) {
+      targetSocket.emit('admin-force-video', { enabled });
+    }
+  });
+
+  socket.on('e2ee-public-key', ({ roomId, publicKey }) => {
     socket.to(roomId).emit("e2ee-public-key", {
       sender: socket.id,
       publicKey
@@ -470,14 +584,6 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("remove-image", (imageId) => {
-    const messages = document.querySelectorAll(".message");
-    messages.forEach(msg => {
-      if (msg.dataset.id === imageId) {
-        msg.remove();
-      }
-    });
-  });
   socket.on("send-image", ({ roomId, image, imageId }) => {
     const username = users[socket.id] ? users[socket.id].username : socket.id;
     const imgData = {
@@ -497,6 +603,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("delete-image", ({ roomId, imageId }) => {
+    if (roomMessages[roomId]) {
+      roomMessages[roomId] = roomMessages[roomId].filter(msg => {
+        return !(msg.type === 'image' && msg.imageId === imageId);
+      });
+    }
     io.to(roomId).emit("remove-image", imageId);
   });
 
@@ -726,11 +837,8 @@ io.on("connection", (socket) => {
       const roomId = users[socket.id].currentRoom;
       if (roomMembers[roomId]) {
         roomMembers[roomId] = roomMembers[roomId].filter(m => m.id !== socket.id);
-        // Emit updated room members to remaining users
-        io.to(roomId).emit("room-members", {
-          members: roomMembers[roomId],
-          ownerId: roomOwners[roomId]
-        });
+        emitParticipantLeft(roomId, socket.id);
+        emitRoomState(roomId);
       }
 
       // Clean up pending join requests for this user
@@ -747,5 +855,5 @@ io.on("connection", (socket) => {
 });
 
 server.listen(3001, () => {
-  console.log("Server running on http://localhost:3000");
+  console.log("Server running on http://localhost:3001");
 });
