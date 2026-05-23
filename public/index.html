@@ -229,12 +229,19 @@
 
     // Save username when typing
     document.getElementById('usernameInput').addEventListener('input', (e) => {
-      const username = e.target.value.trim();
+      syncUsername();
+    });
+
+    function syncUsername() {
+      const username = document.getElementById('usernameInput').value.trim();
       if (username) {
         localStorage.setItem('chatUsername', username);
         socket.emit('set-username', username);
+      } else {
+        localStorage.removeItem('chatUsername');
       }
-    });
+      return username;
+    }
 
     function updateVideoToggleBtn() {
       const btn = document.getElementById('videoToggleBtn');
@@ -249,19 +256,17 @@
     }
 
     function startStrangerChat() {
-      const username = document.getElementById('usernameInput').value.trim();
-      if (username) {
-        localStorage.setItem('chatUsername', username);
-        socket.emit('set-username', username);
-      }
+      syncUsername();
       window.location.href = "/stranger.html";
     }
 
     function createRoom() {
+      syncUsername();
       socket.emit("create-room");
     }
 
     function joinRoom() {
+      syncUsername();
       const roomId = document.getElementById("roomInput").value.trim();
       if (!roomId) {
         alert("Please enter a room code");

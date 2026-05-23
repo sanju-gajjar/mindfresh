@@ -462,23 +462,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on('admin-force-video', ({ roomId, userId, enabled }) => {
-    const sender = getParticipant(roomId, socket.id);
-    if (!sender || sender.role !== 'admin') return;
-
-    const participant = getParticipant(roomId, userId);
-    if (!participant) return;
-
-    participant.videoEnabled = Boolean(enabled);
-    emitParticipantUpdated(roomId, participant);
-    emitRoomState(roomId);
-
-    const targetSocket = io.sockets.sockets.get(userId);
-    if (targetSocket) {
-      targetSocket.emit('admin-force-video', { enabled });
-    }
-  });
-
   socket.on('e2ee-public-key', ({ roomId, publicKey }) => {
     socket.to(roomId).emit("e2ee-public-key", {
       sender: socket.id,
