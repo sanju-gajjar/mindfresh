@@ -323,7 +323,7 @@
       color: #eee;
       word-wrap: break-word;
       line-height: 1.4;
-      font-size: 13px;
+      font-size: 11px;
       margin-bottom: 2px;
     }
     .message.me {
@@ -342,6 +342,26 @@
       font-weight: 500;
       display: block;
       text-align: left;
+    }
+    .message-meta {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 2px;
+      font-size: 9px;
+    }
+    .message-time {
+      color: #666;
+      font-size: 9px;
+    }
+    .message-status {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 9px;
+    }
+    .message-status .tick {
+      color: #666;
     }
     .reaction-trigger {
       position: absolute;
@@ -864,6 +884,101 @@
       border-color: #444;
     }
 
+    /* ===== CONFIRMATION MODAL ===== */
+    .confirmation-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+    }
+
+    .confirmation-modal.show {
+      display: flex;
+    }
+
+    .confirmation-content {
+      text-align: center;
+      padding: 40px;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 16px;
+      min-width: 300px;
+      max-width: 400px;
+    }
+
+    .confirmation-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .confirmation-title {
+      font-size: 18px;
+      color: #f5f5f5;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .confirmation-subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 24px;
+    }
+
+    .confirmation-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .btn-allow,
+    .btn-not-allow {
+      flex: 1;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #111;
+      color: #f5f5f5;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-weight: 600;
+    }
+
+    .btn-allow:hover {
+      background: #1a1a1a;
+      border-color: #444;
+    }
+
+    .btn-not-allow:hover {
+      background: #1a1a1a;
+      border-color: #444;
+    }
+
+    .btn-allow {
+      background: #27ae60;
+      border-color: #229954;
+      color: #fff;
+    }
+
+    .btn-allow:hover {
+      background: #229954;
+      border-color: #1e8449;
+    }
+
+    .btn-not-allow {
+      background: #c0392b;
+      border-color: #a93226;
+      color: #fff;
+    }
+
+    .btn-not-allow:hover {
+      background: #a93226;
+      border-color: #922b21;
+    }
+
     /* ===== PENDING SCREEN ===== */
     .pending-screen {
       position: fixed;
@@ -1347,6 +1462,19 @@
       <div id="adultEmojis" class="emoji-grid" style="display:none;"></div>
     </div>
 
+    <!-- Join Room Confirmation Popups -->
+    <div class="confirmation-modal" id="confirmationModal">
+      <div class="confirmation-content">
+        <div class="confirmation-icon">❓</div>
+        <div class="confirmation-title" id="confirmationTitle">Are you 18+?</div>
+        <div class="confirmation-subtitle" id="confirmationSubtitle">Please confirm to continue</div>
+        <div class="confirmation-buttons">
+          <button class="btn-not-allow" onclick="handleConfirmationNo()">Not Allow</button>
+          <button class="btn-allow" onclick="handleConfirmationYes()">Allow</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Pending Join Request Screen -->
@@ -1509,6 +1637,15 @@
     const typingStreamText = document.getElementById("typingStreamText");
     const typingPreviewBubble = document.getElementById("typingPreviewBubble");
 
+    // Confirmation popup variables
+    let confirmationStep = 0;
+    const confirmationMessages = [
+      { title: "Are you 18+?", subtitle: "This is an adult chat room", icon: "⚠️" },
+      { title: "Are you ready for night crush chat?", subtitle: "Join this exciting chat experience", icon: "💕" },
+      { title: "You joining room", subtitle: "Confirm to enter the room", icon: "🚪" }
+    ];
+    let showingConfirmation = false;
+
     let loadedMessageIds = new Set();
     let messageStatuses = {}; // Track message statuses
     let isOwner = false;
@@ -1606,6 +1743,52 @@
       ]
     };
 
+    // Confirmation popup functions
+    function showConfirmationPopup() {
+      if (confirmationStep >= confirmationMessages.length) {
+        // All confirmations done
+        return;
+      }
+
+      if (showingConfirmation) {
+        return; // Already showing, prevent duplicate
+      }
+
+      showingConfirmation = true;
+      const modal = document.getElementById("confirmationModal");
+      const msgData = confirmationMessages[confirmationStep];
+
+      document.getElementById("confirmationTitle").innerText = msgData.title;
+      document.getElementById("confirmationSubtitle").innerText = msgData.subtitle;
+      document.querySelector(".confirmation-icon").innerText = msgData.icon;
+
+      modal.classList.add("show");
+    }
+
+    function handleConfirmationYes() {
+      const modal = document.getElementById("confirmationModal");
+      modal.classList.remove("show");
+      confirmationStep++;
+      showingConfirmation = false;
+
+      if (confirmationStep < confirmationMessages.length) {
+        // Show next confirmation after a small delay
+        setTimeout(showConfirmationPopup, 300);
+      }
+    }
+
+    function handleConfirmationNo() {
+      const modal = document.getElementById("confirmationModal");
+      modal.classList.remove("show");
+      confirmationStep++;
+      showingConfirmation = false;
+
+      if (confirmationStep < confirmationMessages.length) {
+        // Show next confirmation after a small delay (even if user clicked "Not Allow")
+        setTimeout(showConfirmationPopup, 300);
+      }
+    }
+
     document.getElementById("roomCode").innerText = roomId;
 
     function getRequiredUsername() {
@@ -1658,6 +1841,10 @@
     socket.on("room-joined", safe((rid) => {
       pendingRequest = false;
       document.getElementById("pendingScreen").classList.remove("show");
+      
+      // Show confirmation popups after room is joined
+      confirmationStep = 0;
+      setTimeout(showConfirmationPopup, 300);
     }, 'socket.room-joined'));
 
     socket.on("join-request-sent", safe(() => {
@@ -1956,11 +2143,11 @@
     function getStatusTick(status) {
       switch (status) {
         case 'sent':
-          return '<span class="tick sent">✓</span>';
+          return '<span class="tick sent">👆</span>';
         case 'delivered':
-          return '<span class="tick delivered">✓✓</span>';
+          return '<span class="tick delivered">👆👆</span>';
         case 'read':
-          return '<span class="tick read">✓✓</span>';
+          return '<span class="tick read">👆👆</span>';
         default:
           return '';
       }
